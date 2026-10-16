@@ -3,6 +3,8 @@
 Experimental 32-bit i440fx PC browser host. Uses the validated JIT/x87 engine
 from the private `Shubin123/qemu_emscripten` development repository.
 
+Live: https://shubin123.github.io/qemu_web/
+
 Choose a local PC BIOS and optional raw/qcow2 disk, then start the PC. Files
 are never uploaded. Keyboard input is captured while the display has focus.
 Disk changes are discarded on stop. No guest firmware or operating systems
