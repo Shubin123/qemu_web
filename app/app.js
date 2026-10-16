@@ -17,7 +17,7 @@ window.bootPc=async options=>{
   for(const type of ['error','abort'])host.addEventListener(type,e=>{status(e.detail.message);host?.terminate();host=null;controls(false);});
   host.addEventListener('exited',()=>{status('PC stopped.');controls(false);});
   controls(true);status('Starting PC…');
-  try{await host.boot(options);status('PC running. Click the display to use the keyboard.');canvas.focus();return host;}
+  try{await host.boot({memoryOrder:'auto',...options});status('PC running. Click the display to use the keyboard.');canvas.focus();return host;}
   catch(e){host?.terminate();host=null;controls(false);status(e.message);throw e;}
 };
 el('boot').addEventListener('submit',async e=>{e.preventDefault();const bios=el('bios').files[0],disk=el('disk').files[0];if(!bios)return;await window.bootPc({files:{bios,...(disk?{hdd:disk}:{})},settings:{diskFormat:el('format').value,memory:Number(el('memory').value)}}).catch(()=>{});});

@@ -27,7 +27,8 @@ export class QemuHost extends EventTarget {
    * x87: 'fast' (default) or diagnostic 'reference' (QEMU helpers, no x87
    * inlining). x87Cache enables experimental write-through JIT locals;
    * x87Profile enables per-operation attempt/accept counters.
-   * memoryOrder defaults to strict guest ordering on every host.
+   * memoryOrder defaults to strict guest ordering on every host; 'auto'
+   * drops the fences on hosts that report x86 (see hostIsX86).
    */
   boot({files = {}, settings = {}, args = [], wasmBinary, echoLog = false, jit = true,
         memoryOrder = 'strict', x87 = 'fast', x87Cache = false, x87Profile = false} = {}) {

@@ -7,7 +7,7 @@
 // Protocol (page -> worker): {type:'boot', ...}, {type:'command', id, cmd, arg},
 // {type:'mount', ...}. Worker -> page: {type:'host-port', port} for each
 // pthread worker, plus {qemu:{type,...}} events from the runtime thread.
-import {buildArguments, CORE_PATHS} from './qemu-config.js';
+import {buildArguments, CORE_PATHS, hostIsX86} from './qemu-config.js';
 import {mountOpfsFile} from './qemu-opfs-fs.js';
 
 let Module = null;
@@ -169,16 +169,15 @@ async function boot(msg) {
   send({type: 'diag', stage: 'main started', rc, ...poolState()});
 }
 
-// Strict ordering is the portable default; overrides are explicit experiments.
+// Strict ordering is the portable default; 'auto' drops fences on x86 hosts.
 async function memoryFences(order = 'strict') {
   if (order === 'strict') return true;
   if (order === 'relaxed') return false;
+  let architecture;
   try {
-    const {architecture} = await navigator.userAgentData.getHighEntropyValues(['architecture']);
-    return architecture !== 'x86';
-  } catch {
-    return true;
-  }
+    ({architecture} = await navigator.userAgentData.getHighEntropyValues(['architecture']));
+  } catch { /* Firefox and Safari: fall back to the user agent */ }
+  return !hostIsX86({architecture, userAgent: navigator.userAgent, platform: navigator.platform});
 }
 
 function poolState() {

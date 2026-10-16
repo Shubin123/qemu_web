@@ -23,7 +23,7 @@ hosting uses the included service worker and reloads once to enable isolation.
 `web/` is generated from `app/` plus the checked, hash-pinned `runtime/`.
 
 GPL-2.0-or-later; see LICENSE. The runtime preserves its QEMU/xemu ancestry.
-[Matching complete engine source](https://github.com/Shubin123/qemu_web/releases/download/engine-5718b2d/qemu-emscripten-5718b2d-source.tar.gz)
+[Matching complete engine source](https://github.com/Shubin123/qemu_web/releases/download/engine-c5e0265/qemu-emscripten-c5e0265-source.tar.gz)
 is provided publicly with the binary, including the offline pinned source
 bundle, patches, build scripts and dependency sources. Rebuild instructions
-are in its README. Engine source version: `5718b2d`; Emscripten: `6.0.9`.
+are in its README. Engine source version: `c5e0265`; Emscripten: `6.0.9`.

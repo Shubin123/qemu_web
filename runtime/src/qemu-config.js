@@ -15,3 +15,13 @@ export function buildArguments(settings = {}, files = {}) {
   if (files.disc) args.push('-drive', `file=${files.disc},if=ide,index=2,media=cdrom,format=raw,readonly=on`);
   return args;
 }
+
+// x86 hosts already order plain accesses like an x86 guest, so the JIT's
+// guest memory fences can go (measured ~3x on x86-64 Linux Chrome). Only
+// answer true when the browser says so unambiguously; anything else keeps
+// fences. Firefox lacks userAgentData but reports the Linux machine type.
+// macOS and Windows user agents claim x86 on Arm hardware and are not trusted.
+export function hostIsX86({architecture, userAgent = '', platform = ''} = {}) {
+  if (architecture) return architecture === 'x86';
+  return /^Linux (x86_64|i[3-6]86)$/.test(platform) && /\bLinux (x86_64|i[3-6]86)\b/.test(userAgent);
+}
