@@ -116,4 +116,3 @@ export function buildFlash(iterations = DEFAULT_ITERATIONS) {
   flash[vec] = 0xE9; flash[vec + 1] = rel16 & 255; flash[vec + 2] = rel16 >>> 8;
   return flash;
 }
-
