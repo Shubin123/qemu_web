@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "engineCommit": "5718b2d",
+  "coreId": "sha256:90fdf1c5ffbe3b136df1efd779367569250e5173726c5505d9de07d73ffbdfd6",
+  "source": "https://github.com/Shubin123/qemu_web/releases/download/engine-5718b2d/qemu-emscripten-5718b2d-source.tar.gz",
+  "files": [
+    {
+      "path": "src/qemu-config.js",
+      "size": 1343,
+      "sha256": "2c0fbed936356d0ef71e4a0883d443e965da82518d556ac133f9cb073dec5dd4"
+    },
+    {
+      "path": "src/qemu-core-worker.js",
+      "size": 8934,
+      "sha256": "bd5ef6b3ca3b1a1ac919616065cca1e0cf62bc10fc2268a71340d4478221f9f3"
+    },
+    {
+      "path": "src/qemu-host.js",
+      "size": 8848,
+      "sha256": "2164f6c986d314013cd4c11d6d174a8953f4be69adeb6c6a1c386b43b9db740e"
+    },
+    {
+      "path": "src/qemu-opfs-fs.js",
+      "size": 4548,
+      "sha256": "dca2b692130a57ea3c4be0781380a16f366dfd4cad72ebec2830e90dea0035ec"
+    },
+    {
+      "path": "cores/qemu/qemu-core.build.json",
+      "size": 799,
+      "sha256": "b8965c7246f5f34e23c0cd4c5c281bbad0d707ca5daa5e2874c560446a70dcef"
+    },
+    {
+      "path": "cores/qemu/qemu-core.js",
+      "size": 150424,
+      "sha256": "4fc02bdf9201bf02999e1abd041d1476899cd1ba09fd8d6498889dd056d31e9a"
+    },
+    {
+      "path": "cores/qemu/qemu-core.wasm",
+      "size": 8130858,
+      "sha256": "90fdf1c5ffbe3b136df1efd779367569250e5173726c5505d9de07d73ffbdfd6"
+    }
+  ]
+}

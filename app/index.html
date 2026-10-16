@@ -1,0 +1,14 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>QEMU Web · i386 PC</title><link rel="stylesheet" href="style.css">
+<main><h1>QEMU Web</h1><p>A 32-bit PC in your browser. Choose your local BIOS and an optional disk. Files stay on your device.</p>
+<form id="boot"><label>PC BIOS <input id="bios" type="file" required></label>
+<label>Disk (optional) <input id="disk" type="file"></label>
+<label>Disk format <select id="format"><option value="raw">Raw</option><option value="qcow2">qcow2</option></select></label>
+<label>Memory <select id="memory"><option>64</option><option>128</option><option>32</option></select> MiB</label>
+<button id="start">Start PC</button></form>
+<p><button id="pause" disabled>Pause</button> <button id="resume" disabled>Resume</button> <button id="reset" disabled>Reset</button> <button id="stop" disabled>Stop</button></p>
+<p id="status" role="status">Choose a local PC BIOS to begin.</p><canvas id="screen" width="640" height="480" tabindex="0" aria-label="PC display; click to capture keyboard"></canvas>
+<details><summary>Engine log</summary><pre id="log"></pre></details>
+<p>Experimental i386/i440fx target. Audio, networking and x86-64 are not available. Disks opened here are read-only inputs; changes are discarded on stop.</p>
+<footer><a href="https://github.com/Shubin123/qemu_web">Website source</a> · <a href="https://github.com/Shubin123/qemu_web/releases/download/engine-5718b2d/qemu-emscripten-5718b2d-source.tar.gz">Matching engine source (GPL)</a></footer></main>
+<script type="module" src="app.js"></script></html>
