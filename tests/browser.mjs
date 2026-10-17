@@ -4,14 +4,66 @@ import {chromium} from 'playwright-core';
 import {serve} from '../tools/serve.mjs';
 import {buildFlash,expectedChecksum} from './test-flash.js';
 const executablePath=[process.env.CHROME_PATH,'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome','/usr/bin/google-chrome','/usr/bin/chromium'].find(p=>p&&existsSync(p));
-const {server,url}=await serve({port:0,quiet:true});let browser;
+const {server,url}=process.env.TEST_BASE_URL?{server:null,url:process.env.TEST_BASE_URL}:await serve({port:0,quiet:true});let browser;
 try{
   browser=await chromium.launch({executablePath,headless:true});
   const page=await browser.newPage();const errors=[];
   page.on('pageerror',e=>errors.push(e.message));
   await page.goto(url);await page.waitForFunction(()=>window.bootPc);
-  assert.equal(await page.locator('button:visible').count(),1);
+  await page.waitForFunction(()=>crossOriginIsolated,null,{timeout:30000});
+  assert.equal(await page.locator('button:visible').count(),2);
+  assert.equal(await page.locator('#start svg.pyramid').count(),1);
+  assert.equal(await page.getByRole('button',{name:'Start PC',exact:true}).count(),1);
+  assert.equal(await page.locator('#setup-menu').isVisible(),false);
+  // Start without a BIOS guides the user into setup instead of validating a hidden field.
+  await page.click('#start');
+  assert.equal(await page.locator('#setup-menu').isVisible(),true);
+  assert.equal(await page.locator('#menu-toggle').getAttribute('aria-expanded'),'true');
+  await page.keyboard.press('Shift+Tab');
+  assert.equal(await page.evaluate(()=>document.querySelector('#setup-menu').contains(document.activeElement)),true);
+  await page.keyboard.press('Tab');
+  assert.equal(await page.evaluate(()=>document.querySelector('#setup-menu').contains(document.activeElement)),true);
+  await page.keyboard.press('Escape');
+  await page.waitForFunction(()=>!document.querySelector('#setup-menu').open);
+  assert.equal(await page.locator('#menu-toggle').getAttribute('aria-expanded'),'false');
+  await page.click('#menu-toggle');
+  await page.mouse.click(5,5);
+  await page.waitForFunction(()=>!document.querySelector('#setup-menu').open);
+  await page.click('#menu-toggle');
+  for(const architecture of ['x86_64','aarch64']){
+    await page.selectOption('#architecture',architecture);
+    assert.equal(await page.locator('#start').isDisabled(),true);
+    assert.match(await page.locator('#compatibility-note').textContent(),/not included/);
+  }
+  await page.selectOption('#architecture','i386');
+  await page.selectOption('#os','templeos');
+  assert.equal(await page.locator('#architecture').inputValue(),'x86_64');
+  assert.equal(await page.locator('#start').isDisabled(),true);
+  await page.selectOption('#os','custom');
+  await page.selectOption('#architecture','i386');
+  assert.equal(await page.locator('#start').isEnabled(),true);
+  assert.equal(await page.locator('#os-coverage tr').count(),7);
+  await page.locator('form details summary').click();
+  await page.selectOption('#memory','128');
+  await page.selectOption('#format','qcow2');
+  await page.check('#serial');
+  await page.locator('#bios').setInputFiles({name:'discard.bin',mimeType:'application/octet-stream',buffer:Buffer.from([0])});
+  await page.selectOption('#os','templeos');
+  await page.click('#menu-reset');
+  assert.match(await page.locator('#menu-notice').textContent(),/Defaults restored/);
+  assert.equal(await page.locator('#architecture').inputValue(),'i386');
+  assert.equal(await page.locator('#os').inputValue(),'custom');
+  assert.equal(await page.locator('#memory').inputValue(),'64');
+  assert.equal(await page.locator('#format').inputValue(),'raw');
+  assert.equal(await page.locator('#serial').isChecked(),false);
+  assert.equal(await page.locator('#bios').inputValue(),'');
+  assert.equal(await page.locator('form details').getAttribute('open'),null);
   await page.locator('#bios').setInputFiles({name:'generated-test.bin',mimeType:'application/octet-stream',buffer:Buffer.from(buildFlash(20000000))});
+  await page.click('#menu-done');
+  assert.equal(await page.evaluate(()=>document.activeElement.id),'start');
+  await page.click('#menu-toggle');
+  assert.match(await page.locator('#bios').inputValue(),/generated-test.bin/);
+  await page.click('#menu-done');
   // Observe the normal form submission without bypassing its file/configuration path.
   await page.evaluate(()=>{
     const boot=window.bootPc;
@@ -30,6 +82,11 @@ try{
   console.log(`Start button to generated BIOS checksum: ${Date.now()-started} ms`);
   assert.equal(await page.locator('#start').isDisabled(),true);
   assert.equal(await page.locator('#resume').isDisabled(),true);
+  await page.click('#menu-toggle');
+  assert.equal(await page.locator('#menu-reset').isDisabled(),true);
+  assert.equal(await page.locator('#setup-state').isVisible(),true);
+  assert.equal(await page.locator('#bios').isDisabled(),true);
+  await page.click('#menu-close');
   await page.click('#pause');
   await page.waitForFunction(()=>document.querySelector('#status').textContent==='PC paused.');
   assert.equal(await page.locator('#pause').isDisabled(),true);
@@ -39,11 +96,18 @@ try{
   await page.waitForFunction(()=>document.querySelector('#status').textContent.startsWith('PC running.'));
   await page.click('#stop');
   assert.equal(await page.locator('#start').isEnabled(),true);
-  assert.equal(await page.locator('button:visible').count(),1);
+  assert.equal(await page.locator('button:visible').count(),2);
+  assert.equal(await page.locator('#start svg.pyramid').count(),1);
+  assert.equal(await page.getByRole('button',{name:'Start PC',exact:true}).count(),1);
   // Cancel startup, then immediately start again with the same selected BIOS.
   await page.click('#start');await page.click('#stop');await page.click('#start');
   await page.waitForFunction(()=>document.querySelector('#status').textContent.startsWith('PC running.'));
   await page.click('#stop');
+  await page.setViewportSize({width:390,height:844});
+  await page.click('#menu-toggle');
+  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+  assert.equal(await page.locator('#setup-menu').evaluate(element=>element.scrollWidth>element.clientWidth),false);
+  await page.keyboard.press('Escape');
   assert.deepEqual(errors,[]);
   console.log('Start, checksum, pause/resume, reset, stop and restart passed');
-}finally{await browser?.close();server.close();}
+}finally{await browser?.close();server?.close();}

@@ -1,14 +1,27 @@
 <!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>QEMU Web · i386 PC</title><link rel="stylesheet" href="style.css">
-<main><h1>QEMU Web</h1><p>A 32-bit PC in your browser. Choose your local BIOS and an optional disk. Files stay on your device.</p>
-<form id="boot"><label>PC BIOS <input id="bios" type="file" required></label>
+<main>
+<header><h1>QEMU Web</h1><button id="menu-toggle" class="icon-button" type="button" aria-label="Open setup menu" aria-haspopup="dialog" aria-controls="setup-menu" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button></header>
+<div class="toolbar"><button id="start" type="submit" form="boot"><svg class="pyramid" viewBox="0 0 64 56" aria-hidden="true" focusable="false"><path d="M32 3 3 49l29 5 29-5Z" fill="#e9bd62"/><path d="m32 3 0 51 29-5Z" fill="#b87829"/><path d="m32 3-8 47 8 4" fill="#ffe4a0"/><path d="m3 49 29 5 29-5" fill="none" stroke="#fff0c2" stroke-width="2"/></svg><span id="start-label">Start PC</span></button>
+<div id="machine-controls" hidden><button id="pause" disabled>Pause</button> <button id="resume" disabled>Resume</button> <button id="reset" disabled>Reset PC</button> <button id="stop" disabled>Stop</button></div></div>
+<p id="selection-note" role="status" hidden></p>
+<p id="status" role="status">Open the menu to choose a local PC BIOS.</p>
+<canvas id="screen" width="640" height="480" tabindex="0" aria-label="PC display; click to capture keyboard"></canvas>
+<dialog id="setup-menu" aria-labelledby="setup-title"><header><h2 id="setup-title">Setup</h2><button id="menu-close" type="button" class="icon-button" aria-label="Close setup menu">×</button></header>
+<p class="muted">Choose local files, then start your PC. Files stay on your device.</p>
+<p id="setup-state" class="muted" hidden></p>
+<form id="boot"><label>Guest architecture <select id="architecture" aria-describedby="compatibility-note"></select></label>
+<label>Operating system <select id="os" aria-describedby="compatibility-note"></select></label><label>PC BIOS <input id="bios" type="file" required></label>
+<label>Boot ISO (optional) <input id="disc" type="file" accept=".iso"></label>
 <label>Disk (optional) <input id="disk" type="file"></label>
-<details><summary>Options</summary><label>Disk format <select id="format"><option value="raw">Raw</option><option value="qcow2">qcow2</option></select></label>
+<details><summary>Options</summary><label><input id="serial" type="checkbox"> Show guest COM1 serial output in the log</label><label>Disk format <select id="format"><option value="raw">Raw</option><option value="qcow2">qcow2</option></select></label>
 <label>Memory <select id="memory"><option>64</option><option>128</option><option>32</option></select> MiB</label>
-</details><button id="start" type="submit">Start PC</button></form>
-<p id="machine-controls" hidden><button id="pause" disabled>Pause</button> <button id="resume" disabled>Resume</button> <button id="reset" disabled>Reset</button> <button id="stop" disabled>Stop</button></p>
-<p id="status" role="status">Choose a local PC BIOS to begin.</p><canvas id="screen" width="640" height="480" tabindex="0" aria-label="PC display; click to capture keyboard"></canvas>
+</details></form>
+<p id="compatibility-note" role="status"></p>
+<p id="menu-notice" role="status" hidden></p>
+<div class="menu-actions"><button id="menu-reset" type="button">Reset menu defaults</button><button id="menu-done" type="button">Done</button></div>
+<details><summary>OS compatibility and test coverage</summary><p>No full operating system has been verified on this bundled engine. The browser tests check generated firmware, CPU results and controls. OS choices describe intended guest architectures, not a compatibility guarantee. Use your own installation media.</p><table><thead><tr><th>Operating system</th><th>Guest architectures</th><th>Browser OS test</th></tr></thead><tbody id="os-coverage"></tbody></table></details>
 <details><summary>Engine log</summary><pre id="log"></pre></details>
 <p>Experimental i386/i440fx target. Audio, networking and x86-64 are not available. Disks opened here are read-only inputs; changes are discarded on stop.</p>
-<footer><a href="https://github.com/Shubin123/qemu_web">Website source</a> · <a href="https://github.com/Shubin123/qemu_web/releases/download/engine-c5e0265/qemu-emscripten-c5e0265-source.tar.gz">Matching engine source (GPL)</a></footer></main>
+<footer><a href="https://github.com/Shubin123/qemu_web">Website source</a> · <a href="https://github.com/Shubin123/qemu_web/releases/download/engine-c5e0265/qemu-emscripten-c5e0265-source.tar.gz">Matching engine source (GPL)</a></footer></dialog></main>
 <script type="module" src="app.js"></script></html>

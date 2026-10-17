@@ -1,19 +1,70 @@
+import {architectures,systems,machineProblem,selectedBootOptions} from './machines.js';
 import {QemuHost} from './src/qemu-host.js';
 const el=id=>document.getElementById(id), canvas=el('screen');
 let host=null, paused=false, state='idle', bootOptions=null;
 const keys=new Map();
+for(const item of architectures)el('architecture').add(new Option(item.name+(item.available?'':' — engine unavailable'),item.id));
+for(const item of systems)el('os').add(new Option(item.name,item.id));
+for(const item of systems.filter(item=>item.id!=='custom')){
+  const row=el('os-coverage').insertRow();
+  for(const text of [item.name,item.architectures.join(', '),'Not tested'])row.insertCell().textContent=text;
+}
+function compatibility(){
+  const problem=machineProblem(el('architecture').value,el('os').value);
+  el('compatibility-note').textContent=problem||'32-bit engine available. OS boot compatibility has not been verified; memory is limited to 128 MiB.';
+  el('start').disabled=state!=='idle'||!!problem;
+  el('selection-note').hidden=!problem;el('selection-note').textContent=problem;
+}
+el('architecture').addEventListener('change',compatibility);
+el('os').addEventListener('change',()=>{
+  const system=systems.find(item=>item.id===el('os').value);
+  if(!system.architectures.includes(el('architecture').value))el('architecture').value=system.architectures[0];
+  compatibility();
+});
+compatibility();
+function openMenu(){
+  if(el('setup-menu').open)return;
+  el('menu-notice').hidden=true;
+  el('setup-menu').showModal();el('menu-toggle').setAttribute('aria-expanded','true');
+}
+function closeMenu(){if(el('setup-menu').open)el('setup-menu').close();el('menu-toggle').setAttribute('aria-expanded','false');}
+el('menu-toggle').onclick=openMenu;
+el('menu-close').onclick=closeMenu;
+el('menu-done').onclick=()=>{closeMenu();if(!el('start').disabled)el('start').focus();};
+el('setup-menu').addEventListener('cancel',e=>{e.preventDefault();closeMenu();});
+el('setup-menu').addEventListener('close',()=>el('menu-toggle').setAttribute('aria-expanded',String(el('setup-menu').open)));
+el('setup-menu').addEventListener('click',e=>{
+  if(e.target!==el('setup-menu'))return;
+  const rect=e.target.getBoundingClientRect();
+  if(e.clientX<rect.left||e.clientX>rect.right||e.clientY<rect.top||e.clientY>rect.bottom)closeMenu();
+});
+el('menu-reset').onclick=()=>{
+  if(state!=='idle')return;
+  el('boot').reset();el('architecture').value='i386';el('os').value='custom';bootOptions=null;
+  for(const details of el('setup-menu').querySelectorAll('details'))details.open=false;
+  compatibility();el('menu-notice').hidden=false;el('menu-notice').textContent='Defaults restored. Choose your BIOS and boot files again.';
+  status('Menu defaults restored. Choose a local PC BIOS to begin.');
+};
+el('start').addEventListener('click',e=>{
+  if(!el('bios').files.length){e.preventDefault();openMenu();el('bios').focus();}
+});
+el('boot').addEventListener('change',()=>{el('menu-notice').hidden=true;});
+el('boot').addEventListener('invalid',()=>openMenu(),true);
 function status(text){el('status').textContent=text;}
 function controls(next){
   state=next;
   const active=state!=='idle', running=state==='running';
   el('machine-controls').hidden=!active;
-  el('start').disabled=active;
-  el('start').textContent=state==='starting'?'Starting…':'Start PC';
+  compatibility();
+  el('start-label').textContent=state==='starting'?'Starting…':'Start PC';
   el('pause').disabled=!running;
   el('resume').disabled=state!=='paused';
   el('reset').disabled=!['running','paused'].includes(state);
   el('stop').disabled=!active;
-  for(const id of ['bios','disk','format','memory'])el(id).disabled=active;
+  for(const id of ['bios','disk','disc','format','memory','architecture','os','serial'])el(id).disabled=active;
+  el('menu-reset').disabled=active;
+  el('setup-state').hidden=!active;
+  el('setup-state').textContent=active?'Stop the PC to change setup or reset menu defaults.':'';
   el('boot').setAttribute('aria-busy',String(state==='starting'));
 }
 let logText='', logFrame=0;
@@ -28,6 +79,8 @@ canvas.addEventListener('keydown',e=>{const key=qcode(e.code);if(!host||paused||
 canvas.addEventListener('keyup',e=>{const key=keys.get(e.code);if(!key||!host)return;e.preventDefault();keys.delete(e.code);host.key(key,false).catch(e=>status(e.message));});
 canvas.addEventListener('blur',releaseKeys);window.addEventListener('blur',releaseKeys);
 window.bootPc=async options=>{
+  const problem=machineProblem(options.architecture??'i386');
+  if(problem)throw new Error(problem);
   if(!crossOriginIsolated||typeof SharedArrayBuffer==='undefined')throw new Error('PC startup requires cross-origin isolation. Reload the page once setup finishes.');
   bootOptions={...options,files:Object.fromEntries(Object.entries(options.files||{}).map(([key,value])=>[key,value instanceof ArrayBuffer?value.slice(0):ArrayBuffer.isView(value)?value.slice():value]))};
   host?.terminate();keys.clear();paused=false;
@@ -46,7 +99,15 @@ window.bootPc=async options=>{
     canvas.focus();return session;
   }catch(e){finish(e.message);throw e;}
 };
-el('boot').addEventListener('submit',async e=>{e.preventDefault();const bios=el('bios').files[0],disk=el('disk').files[0];if(!bios||state!=='idle')return;await window.bootPc({files:{bios,...(disk?{hdd:disk}:{})},settings:{diskFormat:el('format').value,memory:Number(el('memory').value)}}).catch(e=>{if(state==='idle'&&e.message!=='Core terminated')status(e.message);});});
+el('boot').addEventListener('submit',async e=>{
+  e.preventDefault();if(state!=='idle')return;
+  closeMenu();
+  try{
+    await window.bootPc(selectedBootOptions({architecture:el('architecture').value,system:el('os').value,
+      bios:el('bios').files[0],disk:el('disk').files[0],disc:el('disc').files[0],
+      format:el('format').value,memory:el('memory').value,serial:el('serial').checked}));
+  }catch(e){if(state==='idle'&&e.message!=='Core terminated')status(e.message);}
+});
 el('pause').onclick=async()=>{try{await releaseKeys();await host.pause();paused=true;controls('paused');status('PC paused.');}catch(e){status(e.message);}};
 el('resume').onclick=async()=>{try{await host.resume();paused=false;controls('running');status('PC running.');canvas.focus();}catch(e){status(e.message);}};
 el('reset').onclick=async()=>{try{await window.bootPc(bootOptions);}catch(e){if(state==='idle')status(e.message);}};

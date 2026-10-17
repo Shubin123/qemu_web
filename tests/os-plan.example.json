@@ -1,0 +1,26 @@
+{
+  "cases": [
+    {
+      "name": "Alpine x86 with preconfigured serial console (example, not a passing result)",
+      "os": "alpine",
+      "architecture": "i386",
+      "bios": "/absolute/path/to/local/bios.bin",
+      "disc": "/absolute/path/to/local/alpine-x86-serial-console.iso",
+      "memory": 128,
+      "timeoutMs": 180000,
+      "steps": [
+        {
+          "expect": "login:"
+        },
+        {
+          "type": "root\n",
+          "expect": "localhost"
+        },
+        {
+          "type": "uname -m\n",
+          "expect": "i686"
+        }
+      ]
+    }
+  ]
+}

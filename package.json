@@ -1,1 +1,17 @@
-{"name":"qemu-web","version":"0.1.0","private":true,"type":"module","license":"GPL-2.0-or-later","scripts":{"build":"node tools/build.mjs","test":"node tests/smoke.mjs","test:browser":"node tests/browser.mjs","start":"node tools/serve.mjs"},"devDependencies":{"playwright-core":"1.64.0"}}
+{
+  "name": "qemu-web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "GPL-2.0-or-later",
+  "scripts": {
+    "build": "node tools/build.mjs",
+    "test": "node tests/smoke.mjs && node --test tests/machines.test.mjs",
+    "test:browser": "node tests/browser.mjs && node tests/os-harness.mjs",
+    "start": "node tools/serve.mjs",
+    "test:os": "node tests/os-browser.mjs"
+  },
+  "devDependencies": {
+    "playwright-core": "1.64.0"
+  }
+}

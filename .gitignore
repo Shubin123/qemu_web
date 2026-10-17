@@ -2,3 +2,13 @@ node_modules/
 web/
 *.log
 .DS_Store
+
+# Local guest firmware, OS images and acceptance reports stay off Git.
+tests/artifacts/
+tests/os.local.json
+*.iso
+*.img
+*.qcow2
+*.bin
+*.sav
+*.state
