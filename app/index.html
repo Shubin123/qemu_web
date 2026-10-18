@@ -1,33 +1,152 @@
-<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>QEMU Web · i386 PC</title><link rel="stylesheet" href="style.css">
-<main>
-<header><h1>QEMU Web</h1><button id="menu-toggle" class="icon-button" type="button" aria-label="Open setup menu" aria-haspopup="dialog" aria-controls="setup-menu" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button></header>
-<div class="toolbar"><button id="start" type="submit" form="boot"><svg class="pyramid" viewBox="0 0 64 56" aria-hidden="true" focusable="false"><path d="M32 3 3 49l29 5 29-5Z" fill="#e9bd62"/><path d="m32 3 0 51 29-5Z" fill="#b87829"/><path d="m32 3-8 47 8 4" fill="#ffe4a0"/><path d="m3 49 29 5 29-5" fill="none" stroke="#fff0c2" stroke-width="2"/></svg><span id="start-label">Start PC</span></button>
-<button id="btn-templeos" type="button" class="btn-preset">TempleOS (CDN)</button>
-<div id="machine-controls" hidden><button id="pause" disabled>Pause</button> <button id="resume" disabled>Resume</button> <button id="reset" disabled>Reset PC</button> <button id="stop" disabled>Stop</button></div></div>
-<p id="selection-note" role="status" hidden></p>
-<p id="status" role="status">Open the menu to choose a local PC BIOS.</p>
-<canvas id="screen" width="640" height="480" tabindex="0" aria-label="PC display; click to capture keyboard"></canvas>
-<dialog id="setup-menu" aria-labelledby="setup-title"><header><h2 id="setup-title">Setup</h2><button id="menu-close" type="button" class="icon-button" aria-label="Close setup menu">×</button></header>
-<p class="muted">Choose local files, then start your PC. Files stay on your device.</p>
-<p id="setup-state" class="muted" hidden></p>
-<form id="boot"><label>Guest architecture <select id="architecture" aria-describedby="compatibility-note"></select></label>
-<label>Operating system <select id="os" aria-describedby="compatibility-note"></select></label><label>PC BIOS <input id="bios" type="file" required></label>
-<label>Boot ISO (optional) <input id="disc" type="file" accept=".iso"></label>
-<div id="fixture-notice" class="fixture-box" hidden>
-  <span id="fixture-info"></span>
-  <button id="fixture-download" type="button" class="btn-fixture">Download locally to browser</button>
-  <div id="fixture-progress" class="muted" hidden></div>
-</div>
-<label>Disk (optional) <input id="disk" type="file"></label>
-<details><summary>Options</summary><label><input id="serial" type="checkbox"> Show guest COM1 serial output in the log</label><label>Disk format <select id="format"><option value="raw">Raw</option><option value="qcow2">qcow2</option></select></label>
-<label>Memory <select id="memory"><option>64</option><option>128</option><option>32</option></select> MiB</label>
-</details></form>
-<p id="compatibility-note" role="status"></p>
-<p id="menu-notice" role="status" hidden></p>
-<div class="menu-actions"><button id="menu-reset" type="button">Reset menu defaults</button><button id="menu-done" type="button">Done</button></div>
-<details><summary>OS compatibility and test coverage</summary><p>No full operating system has been verified on this bundled engine. The browser tests check generated firmware, CPU results and controls. OS choices describe intended guest architectures, not a compatibility guarantee. Use your own installation media.</p><table><thead><tr><th>Operating system</th><th>Guest architectures</th><th>Browser OS test</th></tr></thead><tbody id="os-coverage"></tbody></table></details>
-<details><summary>Engine log</summary><pre id="log"></pre></details>
-<p>Experimental i386/i440fx target. Audio, networking and x86-64 are not available. Disks opened here are read-only inputs; changes are discarded on stop.</p>
-<footer><a href="https://github.com/Shubin123/qemu_web">Website source</a> · <a href="https://github.com/Shubin123/qemu_web/releases/download/engine-c5e0265/qemu-emscripten-c5e0265-source.tar.gz">Matching engine source (GPL)</a></footer></dialog></main>
-<script type="module" src="app.js"></script></html>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>QEMU Web · i386 PC</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <button type="button" class="menu-toggle" id="btn-layout-menu" aria-label="Layout menu" aria-expanded="false" aria-controls="layout-menu" title="Layout menu">
+      <span></span><span></span><span></span>
+    </button>
+    <h1>💻 QEMU Web</h1>
+    <p>i386 PC Emulator — WebAssembly Proof-of-Concept</p>
+  </header>
+
+  <aside class="layout-menu" id="layout-menu" hidden aria-label="Layout menu">
+    <div class="layout-menu-header">
+      <h2>☰ Layout</h2>
+      <button type="button" class="btn btn-secondary layout-menu-close" id="btn-layout-menu-close" aria-label="Close layout menu">✕</button>
+    </div>
+    <div class="speed-control">
+      <label for="layout-widget-width">
+        <span>Widget width</span><output id="layout-widget-width-value">260px</output>
+      </label>
+      <input id="layout-widget-width" type="range" min="200" max="480" step="10" value="260" aria-label="Minimum widget width">
+    </div>
+    <div class="speed-control">
+      <label for="layout-gap">
+        <span>Spacing</span><output id="layout-gap-value">12px</output>
+      </label>
+      <input id="layout-gap" type="range" min="4" max="28" step="2" value="12" aria-label="Spacing between widgets">
+    </div>
+    <label class="mode-help audio-toggle">
+      <input type="checkbox" id="layout-beside-screen" checked>
+      Place widgets beside the screen when there is room
+    </label>
+    <h3 class="layout-menu-subhead">Widgets</h3>
+    <ul class="layout-widget-list" id="layout-widget-list"></ul>
+    <div class="mode-help">Drag a widget by its title to move it, drag its corner to resize it, or use the buttons here. Double-click a corner to reset that widget's size.</div>
+    <button type="button" class="btn btn-primary" id="btn-layout-reset" style="margin-top:10px;">↺ Reset to default layout</button>
+  </aside>
+  <div class="layout-menu-backdrop" id="layout-menu-backdrop" hidden></div>
+
+  <div class="main-layout">
+    <div class="canvas-panel">
+      <div class="screen-stage" id="screen-stage">
+        <canvas id="screen" width="640" height="480" tabindex="0" aria-label="PC display; click to capture keyboard"></canvas>
+      </div>
+      <div class="toolbar">
+        <button id="start" type="submit" form="boot">
+          <svg class="pyramid" viewBox="0 0 64 56" aria-hidden="true" focusable="false">
+            <path d="M32 3 3 49l29 5 29-5Z" fill="#e9bd62"/>
+            <path d="m32 3 0 51 29-5Z" fill="#b87829"/>
+            <path d="m32 3-8 47 8 4" fill="#ffe4a0"/>
+            <path d="m3 49 29 5 29-5" fill="none" stroke="#fff0c2" stroke-width="2"/>
+          </svg>
+          <span id="start-label">Start PC</span>
+        </button>
+        <button id="btn-templeos" type="button" class="btn-preset">TempleOS (CDN)</button>
+        <div id="machine-controls" hidden>
+          <button id="pause" disabled>Pause</button>
+          <button id="resume" disabled>Resume</button>
+          <button id="reset" disabled>Reset PC</button>
+          <button id="stop" disabled>Stop</button>
+        </div>
+      </div>
+      <p id="selection-note" role="status" hidden></p>
+      <p id="status" role="status">Ready. Choose a local PC BIOS to begin.</p>
+    </div>
+
+    <div class="controls-panel" id="widget-grid">
+      <div class="card" data-widget="machine">
+        <h2>⚙ PC Setup</h2>
+        <form id="boot">
+          <label>Guest architecture <select id="architecture" aria-describedby="compatibility-note"></select></label>
+          <label>Operating system <select id="os" aria-describedby="compatibility-note"></select></label>
+          <details>
+            <summary>Options</summary>
+            <label><input id="serial" type="checkbox"> Show guest COM1 serial output in the log</label>
+            <label>Disk format <select id="format"><option value="raw">Raw</option><option value="qcow2">qcow2</option></select></label>
+            <label>Memory <select id="memory"><option>64</option><option>128</option><option>32</option></select> MiB</label>
+          </details>
+        </form>
+        <p id="compatibility-note" role="status"></p>
+        <p id="setup-state" class="muted" hidden></p>
+        <p id="menu-notice" role="status" hidden></p>
+        <div class="menu-actions">
+          <button id="menu-reset" type="button" class="btn btn-secondary">Reset defaults</button>
+          <button id="menu-done" type="button" class="btn btn-secondary" hidden>Done</button>
+        </div>
+      </div>
+
+      <div class="card" data-widget="media">
+        <h2>💿 Boot Media</h2>
+        <label>PC BIOS <input id="bios" type="file" form="boot" required></label>
+        <label>Boot ISO (optional) <input id="disc" type="file" accept=".iso" form="boot"></label>
+        <div id="fixture-notice" class="fixture-box" hidden>
+          <span id="fixture-info"></span>
+          <button id="fixture-download" type="button" class="btn-fixture">Download locally to browser</button>
+          <div id="fixture-progress" class="muted" hidden></div>
+        </div>
+        <label>Disk (optional) <input id="disk" type="file" form="boot"></label>
+        <p class="mode-help">Choose local files to boot. Files stay on your device; hard disk changes are discarded on stop.</p>
+      </div>
+
+      <div class="card" data-widget="controls">
+        <h2>⌨ Controls &amp; Keyboard</h2>
+        <p class="mode-help">Click the PC display to capture keyboard input. Focus is released when clicking outside.</p>
+        <div class="keymap" style="margin-top:8px;">
+          <p class="mode-help"><strong>Special keys:</strong></p>
+          <p class="mode-help"><kbd>Esc</kbd>, <kbd>Tab</kbd>, <kbd>Enter</kbd>, <kbd>Backspace</kbd>, <kbd>Space</kbd></p>
+          <p class="mode-help"><kbd>Arrow keys</kbd>, <kbd>Home</kbd>, <kbd>End</kbd>, <kbd>PgUp</kbd>, <kbd>PgDn</kbd></p>
+          <p class="mode-help"><kbd>Ctrl</kbd>, <kbd>Alt</kbd>, <kbd>Shift</kbd>, <kbd>F1</kbd>–<kbd>F12</kbd></p>
+        </div>
+      </div>
+
+      <div class="card" data-widget="coverage">
+        <h2>📋 OS Compatibility</h2>
+        <p class="mode-help">No full operating system has been verified on this bundled engine. The browser tests check generated firmware, CPU results and controls. OS choices describe intended guest architectures, not a compatibility guarantee. Use your own installation media.</p>
+        <div class="table-container" style="margin-top:8px;">
+          <table>
+            <thead><tr><th>Operating system</th><th>Guest architectures</th><th>Browser OS test</th></tr></thead>
+            <tbody id="os-coverage"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card" data-widget="log" data-default-span="2">
+        <h2>📜 Engine Log</h2>
+        <div class="log-actions" style="margin-bottom:6px;">
+          <button id="clear-log" type="button" class="btn btn-secondary" style="width:auto;padding:4px 10px;font-size:0.75rem;">Clear log</button>
+        </div>
+        <pre id="log" class="log-box"></pre>
+      </div>
+
+      <div class="card" data-widget="system">
+        <h2>ℹ System Info</h2>
+        <p class="mode-help">Experimental i386/i440fx target. Audio, networking and x86-64 are not available. Disks opened here are read-only inputs; changes are discarded on stop.</p>
+        <p class="mode-help" style="margin-top:8px;">
+          <a href="https://github.com/Shubin123/qemu_web" target="_blank" rel="noopener">Website source</a> ·
+          <a href="https://github.com/Shubin123/qemu_web/releases/download/engine-c5e0265/qemu-emscripten-c5e0265-source.tar.gz">Matching engine source (GPL)</a>
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <script src="layout.js"></script>
+  <script type="module" src="app.js"></script>
+</body>
+</html>

@@ -3,59 +3,157 @@ import {existsSync} from 'node:fs';
 import {chromium} from 'playwright-core';
 import {serve} from '../tools/serve.mjs';
 import {buildFlash,expectedChecksum} from './test-flash.js';
+
 const executablePath=[process.env.CHROME_PATH,'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome','/usr/bin/google-chrome','/usr/bin/chromium'].find(p=>p&&existsSync(p));
-const {server,url}=process.env.TEST_BASE_URL?{server:null,url:process.env.TEST_BASE_URL}:await serve({port:0,quiet:true});let browser;
+const {server,url}=process.env.TEST_BASE_URL?{server:null,url:process.env.TEST_BASE_URL}:await serve({port:0,quiet:true});
+let browser;
+
 try{
   browser=await chromium.launch({executablePath,headless:true});
-  const page=await browser.newPage();const errors=[];
+  const page=await browser.newPage();
+  const errors=[];
   page.on('pageerror',e=>errors.push(e.message));
-  await page.goto(url);await page.waitForFunction(()=>window.bootPc);
+
+  await page.goto(url);
+  await page.waitForFunction(()=>window.bootPc&&window.QemuLayout);
   await page.waitForFunction(()=>crossOriginIsolated,null,{timeout:30000});
-  assert.equal(await page.locator('button:visible').count(),3);
+
+  // 1. Core Azahar layout structure
+  assert.equal(await page.locator('#btn-layout-menu').isVisible(),true);
   assert.equal(await page.locator('#start svg.pyramid').count(),1);
   assert.equal(await page.getByRole('button',{name:'Start PC',exact:true}).count(),1);
   assert.equal(await page.locator('#btn-templeos').isVisible(),true);
-  assert.equal(await page.locator('#setup-menu').isVisible(),false);
-  // Start without a BIOS guides the user into setup instead of validating a hidden field.
-  await page.click('#start');
-  assert.equal(await page.locator('#setup-menu').isVisible(),true);
-  assert.equal(await page.locator('#menu-toggle').getAttribute('aria-expanded'),'true');
-  await page.keyboard.press('Shift+Tab');
-  assert.equal(await page.evaluate(()=>document.querySelector('#setup-menu').contains(document.activeElement)),true);
-  await page.keyboard.press('Tab');
-  assert.equal(await page.evaluate(()=>document.querySelector('#setup-menu').contains(document.activeElement)),true);
+  assert.equal(await page.locator('#screen').isVisible(),true);
+  assert.equal(await page.locator('#layout-menu').isVisible(),false);
+
+  // Check that all 6 widgets are present in the masonry grid
+  const widgetIds=['machine','media','controls','coverage','log','system'];
+  for(const id of widgetIds){
+    assert.equal(await page.locator(`#widget-grid > .card[data-widget="${id}"]`).count(),1);
+  }
+
+  // 2. Widget tools (collapse, span, hide)
+  const machineCard=page.locator('.card[data-widget="machine"]');
+  const collapseBtn=machineCard.locator('.widget-tool-collapse');
+  assert.equal(await collapseBtn.getAttribute('aria-expanded'),'true');
+  await collapseBtn.click();
+  assert.equal(await machineCard.evaluate(el=>el.classList.contains('is-collapsed')),true);
+  assert.equal(await collapseBtn.getAttribute('aria-expanded'),'false');
+  await collapseBtn.click();
+  assert.equal(await machineCard.evaluate(el=>el.classList.contains('is-collapsed')),false);
+
+  // Span button cycles column span
+  const spanBtn=machineCard.locator('.widget-tool-span');
+  await spanBtn.click();
+  const spanAfter=await machineCard.evaluate(el=>el.style.gridColumn);
+  assert.match(spanAfter,/span \d/);
+
+  // Hide button hides the widget
+  const systemCard=page.locator('.card[data-widget="system"]');
+  assert.equal(await systemCard.isVisible(),true);
+  await systemCard.locator('.widget-tool-hide').click();
+  assert.equal(await systemCard.isVisible(),false);
+
+  // 3. Layout drawer menu
+  await page.click('#btn-layout-menu');
+  assert.equal(await page.locator('#layout-menu').isVisible(),true);
+  assert.equal(await page.locator('#btn-layout-menu').getAttribute('aria-expanded'),'true');
+
+  // Verify widget list in layout menu: system widget should be unchecked (hidden)
+  const systemLi=page.locator('#layout-widget-list li[data-widget-id="system"]');
+  assert.equal(await systemLi.locator('input[type="checkbox"]').isChecked(),false);
+  // Restore system widget by checking its checkbox
+  await systemLi.locator('input[type="checkbox"]').check();
+  assert.equal(await systemCard.isVisible(),true);
+
+  // Sliders: widget width and gap
+  await page.locator('#layout-widget-width').fill('280');
+  await page.locator('#layout-widget-width').dispatchEvent('input');
+  assert.equal(await page.locator('#layout-widget-width-value').textContent(),'280px');
+  assert.equal(await page.locator('#widget-grid').evaluate(el=>el.style.getPropertyValue('--widget-w')),'280px');
+
+  await page.locator('#layout-gap').fill('16');
+  await page.locator('#layout-gap').dispatchEvent('input');
+  assert.equal(await page.locator('#layout-gap-value').textContent(),'16px');
+  assert.equal(await page.locator('#widget-grid').evaluate(el=>el.style.getPropertyValue('--widget-gap')),'16px');
+
+  // Reordering via layout menu move buttons (up/down)
+  const firstLi=page.locator('#layout-widget-list li').first();
+  const firstId=await firstLi.getAttribute('data-widget-id');
+  await firstLi.locator('.layout-widget-actions button[title*="down"]').click();
+  const newFirstId=await page.locator('#layout-widget-list li').first().getAttribute('data-widget-id');
+  assert.notEqual(firstId,newFirstId);
+
+  // Close menu via backdrop, close button, and Escape key
+  await page.click('#btn-layout-menu-close');
+  assert.equal(await page.locator('#layout-menu').isVisible(),false);
+  assert.equal(await page.locator('#btn-layout-menu').getAttribute('aria-expanded'),'false');
+
+  await page.click('#btn-layout-menu');
+  assert.equal(await page.locator('#layout-menu').isVisible(),true);
+  await page.click('#layout-menu-backdrop');
+  assert.equal(await page.locator('#layout-menu').isVisible(),false);
+
+  await page.click('#btn-layout-menu');
+  assert.equal(await page.locator('#layout-menu').isVisible(),true);
   await page.keyboard.press('Escape');
-  await page.waitForFunction(()=>!document.querySelector('#setup-menu').open);
-  assert.equal(await page.locator('#menu-toggle').getAttribute('aria-expanded'),'false');
-  await page.click('#menu-toggle');
-  await page.mouse.click(5,5);
-  await page.waitForFunction(()=>!document.querySelector('#setup-menu').open);
-  // Clicking TempleOS on the main page selects the TempleOS fixture and opens setup for BIOS
+  assert.equal(await page.locator('#layout-menu').isVisible(),false);
+
+  // Reset layout to defaults
+  await page.click('#btn-layout-menu');
+  await page.click('#btn-layout-reset');
+  assert.equal(await page.locator('#layout-widget-width-value').textContent(),'260px');
+  assert.equal(await page.locator('#layout-gap-value').textContent(),'12px');
+  await page.click('#btn-layout-menu-close');
+
+  // 4. Moveable and Resizable widgets interaction & persistence
+  // Double-clicking the resize handle resets span and height
+  const resizeHandle=machineCard.locator('.widget-resize');
+  await resizeHandle.dblclick();
+  assert.equal(await machineCard.evaluate(el=>el.style.height),'');
+
+  // Test layout reordering programmatic move and localStorage persistence
+  await page.evaluate(()=>window.QemuLayout.move('system',0));
+  const gridFirstId=await page.locator('#widget-grid > .card').first().getAttribute('data-widget');
+  assert.equal(gridFirstId,'system');
+  const stored=JSON.parse(await page.evaluate(()=>localStorage.getItem('qemu-layout')));
+  assert.equal(stored.order[0],'system');
+
+  // Reset back to defaults for clean state
+  await page.evaluate(()=>window.QemuLayout.reset());
+
+  // 5. TempleOS CDN Preset Button & Machine Setup
   await page.click('#btn-templeos');
-  assert.equal(await page.locator('#setup-menu').isVisible(),true);
   assert.equal(await page.locator('#os').inputValue(),'templeos');
   assert.equal(await page.locator('#architecture').inputValue(),'x86_64');
   assert.equal(await page.locator('#fixture-notice').isVisible(),true);
+  assert.match(await page.locator('#fixture-info').textContent(),/TempleOS V5\.03/);
+
+  // Unavailable architecture checks
   for(const architecture of ['x86_64','aarch64']){
     await page.selectOption('#architecture',architecture);
     assert.equal(await page.locator('#start').isDisabled(),true);
     assert.match(await page.locator('#compatibility-note').textContent(),/not included/);
   }
+
   await page.selectOption('#architecture','i386');
   await page.selectOption('#os','templeos');
   assert.equal(await page.locator('#architecture').inputValue(),'x86_64');
   assert.equal(await page.locator('#start').isDisabled(),true);
-  assert.equal(await page.locator('#fixture-notice').isVisible(),true);
-  assert.match(await page.locator('#fixture-info').textContent(),/TempleOS V5\.03/);
+
   await page.selectOption('#os','custom');
   assert.equal(await page.locator('#fixture-notice').isVisible(),false);
   await page.selectOption('#architecture','i386');
   assert.equal(await page.locator('#start').isEnabled(),true);
   assert.equal(await page.locator('#os-coverage tr').count(),7);
+
+  // Form options: memory, format, serial
   await page.locator('form details summary').click();
   await page.selectOption('#memory','128');
   await page.selectOption('#format','qcow2');
   await page.check('#serial');
+
+  // Setting files and testing Reset defaults
   await page.locator('#bios').setInputFiles({name:'discard.bin',mimeType:'application/octet-stream',buffer:Buffer.from([0])});
   await page.selectOption('#os','templeos');
   await page.click('#menu-reset');
@@ -67,13 +165,10 @@ try{
   assert.equal(await page.locator('#serial').isChecked(),false);
   assert.equal(await page.locator('#bios').inputValue(),'');
   assert.equal(await page.locator('form details').getAttribute('open'),null);
+
+  // 6. BIOS boot and console checksum verification
   await page.locator('#bios').setInputFiles({name:'generated-test.bin',mimeType:'application/octet-stream',buffer:Buffer.from(buildFlash(20000000))});
-  await page.click('#menu-done');
-  assert.equal(await page.evaluate(()=>document.activeElement.id),'start');
-  await page.click('#menu-toggle');
-  assert.match(await page.locator('#bios').inputValue(),/generated-test.bin/);
-  await page.click('#menu-done');
-  // Observe the normal form submission without bypassing its file/configuration path.
+
   await page.evaluate(()=>{
     const boot=window.bootPc;
     window.bootPc=options=>{
@@ -83,41 +178,54 @@ try{
       return result;
     };
   });
+
   const started=Date.now();
   await page.click('#start');
   await page.waitForFunction(()=>testLines.some(l=>l.includes('XEMUWEB:DONE')),null,{timeout:60000});
   const lines=await page.evaluate(()=>testLines);
   assert.ok(lines.some(l=>l.includes(expectedChecksum(20000000).toString(16).toUpperCase().padStart(8,'0'))));
   console.log(`Start button to generated BIOS checksum: ${Date.now()-started} ms`);
+
+  // Machine controls test: pause, resume, reset, stop
   assert.equal(await page.locator('#start').isDisabled(),true);
   assert.equal(await page.locator('#resume').isDisabled(),true);
-  await page.click('#menu-toggle');
   assert.equal(await page.locator('#menu-reset').isDisabled(),true);
   assert.equal(await page.locator('#setup-state').isVisible(),true);
   assert.equal(await page.locator('#bios').isDisabled(),true);
-  await page.click('#menu-close');
+
   await page.click('#pause');
   await page.waitForFunction(()=>document.querySelector('#status').textContent==='PC paused.');
   assert.equal(await page.locator('#pause').isDisabled(),true);
+
   await page.click('#resume');
   await page.waitForFunction(()=>document.querySelector('#status').textContent==='PC running.');
+
   await page.click('#reset');
   await page.waitForFunction(()=>document.querySelector('#status').textContent.startsWith('PC running.'));
+
   await page.click('#stop');
+  await page.waitForFunction(()=>document.querySelector('#status').textContent==='PC stopped.');
   assert.equal(await page.locator('#start').isEnabled(),true);
-  assert.equal(await page.locator('button:visible').count(),3);
-  assert.equal(await page.locator('#start svg.pyramid').count(),1);
-  assert.equal(await page.getByRole('button',{name:'Start PC',exact:true}).count(),1);
-  assert.equal(await page.locator('#btn-templeos').isVisible(),true);
-  // Cancel startup, then immediately start again with the same selected BIOS.
-  await page.click('#start');await page.click('#stop');await page.click('#start');
+  assert.equal(await page.locator('#machine-controls').isVisible(),false);
+
+  // Clear log test
+  await page.click('#clear-log');
+  assert.equal(await page.locator('#log').textContent(),'');
+
+  // Cancel startup and immediately start again
+  await page.click('#start');
+  await page.click('#stop');
+  await page.click('#start');
   await page.waitForFunction(()=>document.querySelector('#status').textContent.startsWith('PC running.'));
   await page.click('#stop');
+
+  // 7. Responsive viewport check
   await page.setViewportSize({width:390,height:844});
-  await page.click('#menu-toggle');
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
-  assert.equal(await page.locator('#setup-menu').evaluate(element=>element.scrollWidth>element.clientWidth),false);
-  await page.keyboard.press('Escape');
+
   assert.deepEqual(errors,[]);
-  console.log('Start, checksum, pause/resume, reset, stop and restart passed');
-}finally{await browser?.close();server?.close();}
+  console.log('Azahar moveable widget layout and emulator lifecycle tests passed');
+}finally{
+  await browser?.close();
+  server?.close();
+}

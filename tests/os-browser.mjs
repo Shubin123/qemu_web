@@ -32,7 +32,7 @@ try{
     page.on('pageerror',error=>errors.push(error.message));const started=Date.now();
     try{
       await page.goto(url);await page.waitForFunction(()=>window.bootPc);
-      await page.click('#menu-toggle');
+      if(await page.locator('#setup-menu').count())await page.click('#menu-toggle');
       await page.selectOption('#architecture',entry.architecture);await page.selectOption('#os',entry.os);
       for(const key of ['bios','disk','disc'])if(entry[key]){
         const path=resolve(base,entry[key]);result.media[key]={sha256:await hashFile(path)};
@@ -50,7 +50,7 @@ try{
           return pending;
         };
       });
-      await page.click('#menu-done');
+      if(await page.locator('#menu-done').isVisible())await page.click('#menu-done');
       await page.click('#start');
       await page.waitForFunction(()=>window.pcHost?.getStats()?.running,{timeout:30000});
       for(const step of entry.steps){

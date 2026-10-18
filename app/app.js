@@ -56,7 +56,8 @@ el('btn-templeos').onclick=async()=>{
   compatibility();
   const fix=system?.fixture;
   if(!el('bios').files.length){
-    openMenu();el('bios').focus();
+    window.QemuLayout?.show?.('media');
+    el('bios').focus();
     status('TempleOS fixture selected. Choose a PC BIOS to begin.');
   }
   if(fix&&!fixtureBlobs.has(fix.id)){
@@ -81,34 +82,40 @@ el('os').addEventListener('change',()=>{
   compatibility();
 });
 compatibility();
+
 function openMenu(){
-  if(el('setup-menu').open)return;
+  if(window.QemuLayout)window.QemuLayout.setMenuOpen(true);
   el('menu-notice').hidden=true;
-  el('setup-menu').showModal();el('menu-toggle').setAttribute('aria-expanded','true');
 }
-function closeMenu(){if(el('setup-menu').open)el('setup-menu').close();el('menu-toggle').setAttribute('aria-expanded','false');}
-el('menu-toggle').onclick=openMenu;
-el('menu-close').onclick=closeMenu;
-el('menu-done').onclick=()=>{closeMenu();if(!el('start').disabled)el('start').focus();};
-el('setup-menu').addEventListener('cancel',e=>{e.preventDefault();closeMenu();});
-el('setup-menu').addEventListener('close',()=>el('menu-toggle').setAttribute('aria-expanded',String(el('setup-menu').open)));
-el('setup-menu').addEventListener('click',e=>{
-  if(e.target!==el('setup-menu'))return;
-  const rect=e.target.getBoundingClientRect();
-  if(e.clientX<rect.left||e.clientX>rect.right||e.clientY<rect.top||e.clientY>rect.bottom)closeMenu();
+function closeMenu(){
+  if(window.QemuLayout)window.QemuLayout.setMenuOpen(false);
+}
+el('menu-toggle')?.addEventListener('click',()=>openMenu());
+el('menu-close')?.addEventListener('click',()=>closeMenu());
+el('menu-done')?.addEventListener('click',()=>{
+  closeMenu();
+  if(!el('start').disabled)el('start').focus();
 });
 el('menu-reset').onclick=()=>{
   if(state!=='idle')return;
   el('boot').reset();el('architecture').value='i386';el('os').value='custom';bootOptions=null;fixtureBlobs.clear();
-  for(const details of el('setup-menu').querySelectorAll('details'))details.open=false;
+  for(const details of document.querySelectorAll('details'))details.open=false;
   compatibility();el('menu-notice').hidden=false;el('menu-notice').textContent='Defaults restored. Choose your BIOS and boot files again.';
   status('Menu defaults restored. Choose a local PC BIOS to begin.');
 };
 el('start').addEventListener('click',e=>{
-  if(!el('bios').files.length){e.preventDefault();openMenu();el('bios').focus();}
+  if(!el('bios').files.length){
+    e.preventDefault();
+    window.QemuLayout?.show?.('media');
+    el('bios').focus();
+    status('Choose a local PC BIOS to begin.');
+  }
 });
 el('boot').addEventListener('change',()=>{el('menu-notice').hidden=true;});
-el('boot').addEventListener('invalid',()=>openMenu(),true);
+el('boot').addEventListener('invalid',()=>{
+  window.QemuLayout?.show?.('media');
+  window.QemuLayout?.show?.('machine');
+},true);
 function status(text){el('status').textContent=text;}
 function controls(next){
   state=next;
@@ -132,6 +139,10 @@ function log(lines){
   logText=(logText+lines.map(line=>line.text).join('\n')+'\n').slice(-24000);
   if(!logFrame)logFrame=requestAnimationFrame(()=>{el('log').textContent=logText;logFrame=0;});
 }
+el('clear-log')?.addEventListener('click',()=>{
+  logText='';
+  el('log').textContent='';
+});
 async function releaseKeys(){if(!host)return;const pending=[...keys.values()];keys.clear();await Promise.allSettled(pending.map(key=>host.key(key,false)));}
 const special={Enter:'ret',Escape:'esc',Backspace:'backspace',Tab:'tab',Space:'spc',ArrowUp:'up',ArrowDown:'down',ArrowLeft:'left',ArrowRight:'right',ShiftLeft:'shift',ShiftRight:'shift_r',ControlLeft:'ctrl',ControlRight:'ctrl_r',AltLeft:'alt',AltRight:'alt_r',Delete:'delete',Insert:'insert',Home:'home',End:'end',PageUp:'pgup',PageDown:'pgdn',CapsLock:'caps_lock',Minus:'minus',Equal:'equal',BracketLeft:'bracket_left',BracketRight:'bracket_right',Backslash:'backslash',Semicolon:'semicolon',Quote:'apostrophe',Backquote:'grave_accent',Comma:'comma',Period:'dot',Slash:'slash'};
 function qcode(code){return special[code]||(/^Key[A-Z]$/.test(code)?code.slice(3).toLowerCase():/^Digit[0-9]$/.test(code)?code.slice(5):/^F([1-9]|1[0-2])$/.test(code)?code.toLowerCase():null);}
