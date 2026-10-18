@@ -5,13 +5,20 @@
 'use strict';
 // Replaced by the build: all assets in this worker's scope use one release key.
 const RELEASE = '__QEMU_RELEASE__';
+const BUILD_CACHE = 'qemu-build-cache-' + RELEASE;
 
 self.addEventListener('install', event => {
     event.waitUntil(self.skipWaiting());
 });
 
 self.addEventListener('activate', event => {
-    event.waitUntil(self.clients.claim());
+    event.waitUntil((async () => {
+        await self.clients.claim();
+        try {
+            const keys = await caches.keys();
+            await Promise.all(keys.filter(k => k.startsWith('qemu-build-cache-') && k !== BUILD_CACHE).map(k => caches.delete(k)));
+        } catch (_) {}
+    })());
 });
 
 self.addEventListener('fetch', event => {
@@ -21,12 +28,25 @@ self.addEventListener('fetch', event => {
     event.respondWith((async () => {
         let request = event.request;
         const scope = new URL(self.registration.scope);
-        if (request.method === 'GET' && requestUrl.pathname.startsWith(scope.pathname)) {
+        const isUnderScope = request.method === 'GET' && requestUrl.pathname.startsWith(scope.pathname);
+
+        if (isUnderScope) {
+            // Check build cache for versioned cores
+            const isCoreAsset = requestUrl.pathname.includes('/cores/');
+            if (isCoreAsset) {
+                try {
+                    const cache = await caches.open(BUILD_CACHE);
+                    const matched = await cache.match(event.request);
+                    if (matched) return matched;
+                } catch (_) {}
+            }
+
             requestUrl.searchParams.set('qemu-release', RELEASE);
             // Navigation requests cannot be cloned with a new URL and mode=navigate.
             request = new Request(requestUrl, {headers: request.headers,
                 credentials: request.credentials, mode: 'same-origin', redirect: 'follow'});
         }
+
         // Revalidate HTTP cache while OPFS storage remains separate.
         const response = await fetch(request, {cache: 'no-cache'});
         if (response.type === 'opaque') return response;
@@ -35,10 +55,20 @@ self.addEventListener('fetch', event => {
         headers.set('Cross-Origin-Opener-Policy', 'same-origin');
         headers.set('Cross-Origin-Embedder-Policy', 'require-corp');
         headers.set('Cross-Origin-Resource-Policy', 'same-origin');
-        return new Response(response.body, {
+        const finalResponse = new Response(response.body, {
             status: response.status,
             statusText: response.statusText,
             headers,
         });
+
+        // Cache successful core and wasm downloads for fast offline starts
+        if (response.ok && isUnderScope && requestUrl.pathname.includes('/cores/')) {
+            try {
+                const cache = await caches.open(BUILD_CACHE);
+                await cache.put(event.request, finalResponse.clone());
+            } catch (_) {}
+        }
+
+        return finalResponse;
     })());
 });

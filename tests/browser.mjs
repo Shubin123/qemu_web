@@ -131,23 +131,29 @@ try{
   // 5. TempleOS CDN Preset Button & Machine Setup
   await page.click('#btn-templeos');
   assert.equal(await page.locator('#os').inputValue(),'templeos');
-  assert.equal(await page.locator('#architecture').inputValue(),'i386');
-  assert.equal(await page.locator('#memory').inputValue(),'128');
+  assert.equal(await page.locator('#architecture').inputValue(),'x86_64');
+  assert.equal(await page.locator('#memory').inputValue(),'512');
   assert.equal(await page.locator('#start').isEnabled(),true);
   assert.equal(await page.locator('#fixture-notice').isVisible(),true);
   assert.match(await page.locator('#fixture-info').textContent(),/TempleOS V5\.03/);
 
-  // Unavailable architecture checks
-  for(const architecture of ['x86_64','aarch64']){
-    await page.selectOption('#architecture',architecture);
-    assert.equal(await page.locator('#start').isDisabled(),true);
-    assert.match(await page.locator('#compatibility-note').textContent(),/not included/);
-  }
+  // Unavailable architecture checks (ARM 64-bit)
+  await page.selectOption('#architecture','aarch64');
+  assert.equal(await page.locator('#start').isDisabled(),true);
+  assert.match(await page.locator('#compatibility-note').textContent(),/not included/);
 
-  await page.selectOption('#architecture','i386');
+  // 64-bit architecture enabled checks
+  await page.selectOption('#architecture','x86_64');
+  assert.equal(await page.locator('#start').isEnabled(),true);
+  assert.match(await page.locator('#compatibility-note').textContent(),/64-bit engine available/);
+
+  // Incompatible guest architecture combination check (e.g. Ubuntu requires x86_64/aarch64, not i386)
   await page.selectOption('#os','ubuntu');
   assert.equal(await page.locator('#architecture').inputValue(),'x86_64');
+  assert.equal(await page.locator('#start').isEnabled(),true);
+  await page.selectOption('#architecture','i386');
   assert.equal(await page.locator('#start').isDisabled(),true);
+  assert.match(await page.locator('#compatibility-note').textContent(),/requires a different guest architecture/);
 
   await page.selectOption('#os','custom');
   assert.equal(await page.locator('#fixture-notice').isVisible(),false);

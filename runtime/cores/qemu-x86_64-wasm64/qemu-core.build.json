@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "target": "x86_64-softmmu",
+  "wasm": "wasm64",
+  "machine": "i440fx",
+  "wasmHeapMiB": 512,
+  "coreId": "sha256:ff9e35ded3d93cdd9b11812c689fdf0594282fc71f7ab344b60b78272c58d750",
+  "upstreamCommit": "478b4f496102379c7eaa7f3ec10e714a703c4300",
+  "vendorHead": "93d3221a4d78a18640205627da439dc124c2a312",
+  "vendorTree": "c9fa01289c7e179c61ac5e5f7d4f05bc23e671a4",
+  "vendorDirty": false,
+  "profile": "release",
+  "emscripten": "6.0.9",
+  "builtAt": "2026-10-17T18:47:33.384Z",
+  "files": [
+    {
+      "path": "qemu-core.js",
+      "size": 170102,
+      "sha256": "3b6ff355975bf7651be4ae2e085fa237bf2ee8e901953cde219ed5f1d4fa737e"
+    },
+    {
+      "path": "qemu-core.wasm",
+      "size": 9419321,
+      "sha256": "ff9e35ded3d93cdd9b11812c689fdf0594282fc71f7ab344b60b78272c58d750"
+    }
+  ]
+}

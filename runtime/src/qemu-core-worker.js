@@ -9,9 +9,13 @@
 // pthread worker, plus {qemu:{type,...}} events from the runtime thread.
 import {buildArguments, CORE_PATHS, hostIsX86} from './qemu-config.js';
 import {mountOpfsFile} from './qemu-opfs-fs.js';
+import {cacheBlobReads} from './qemu-blob-cache.js';
+import {resolveCdnSource} from './qemu-cdn.js';
 
 let Module = null;
 let FS = null;
+// wasm64 cores exchange pointers with JavaScript as BigInt.
+let toPtr = p => p;
 const portedWorkers = new WeakSet();
 
 const send = (msg, transfer = []) => postMessage({qemu: msg}, transfer);
@@ -47,6 +51,27 @@ function logLine(stream, text) {
   } else if (!log.timer) {
     log.timer = setTimeout(flushLog, 100);
   }
+}
+
+// stdout arrives byte by byte so a prompt without a newline (a serial
+// console's "login:") is still logged once output pauses.
+const stdout = {bytes: [], timer: 0, decoder: new TextDecoder()};
+function flushStdout() {
+  clearTimeout(stdout.timer);
+  stdout.timer = 0;
+  if (!stdout.bytes.length) return;
+  const text = stdout.decoder.decode(new Uint8Array(stdout.bytes));
+  stdout.bytes = [];
+  logLine('out', text.replace(/\r$/, ''));
+}
+function stdoutByte(byte) {
+  if (byte === null || byte === 10) {
+    flushStdout();
+    return;
+  }
+  stdout.bytes.push(byte);
+  if (stdout.bytes.length >= 4096) flushStdout();
+  else if (!stdout.timer) stdout.timer = setTimeout(flushStdout, 150);
 }
 
 // Gives every pthread worker its own MessagePort to the page. Running
@@ -93,14 +118,39 @@ async function placeFile(spec, target) {
   mkdirp(dir);
   if (spec.opfs) {
     await mountOpfsFile(Module, FS, spec.opfs, dir, name, {writable: !!spec.writable});
+  } else if (resolveCdnSource(spec) || (typeof spec === 'string' && /^https?:\/\//i.test(spec)) || spec?.url || spec?.streamUrl) {
+    const cdn = resolveCdnSource(spec);
+    const url = cdn ? cdn.streamUrl : (typeof spec === 'string' ? spec : (spec.streamUrl || spec.url));
+    let blob = null;
+    const cacheStorage = typeof caches !== 'undefined' ? caches : (typeof self !== 'undefined' && self.caches ? self.caches : null);
+    if (cacheStorage) {
+      try {
+        const cache = await cacheStorage.open('qemu-downloads-v1');
+        const match = await cache.match(url);
+        if (match) blob = await match.blob();
+      } catch (_) {}
+    }
+    if (!blob) {
+      const response = await fetch(url);
+      if (!response.ok) throw new Error(`CDN fetch failed (${response.status}) for ${url}`);
+      if (cacheStorage) {
+        try {
+          const cache = await cacheStorage.open('qemu-downloads-v1');
+          await cache.put(url, response.clone());
+        } catch (_) {}
+      }
+      blob = await response.blob();
+    }
+    return placeFile(blob, target);
   } else if (spec instanceof Blob || spec.blob) {
     const blob = spec.blob || spec;
-    if (spec.copy || blob.size <= 16 * 1024 * 1024) {
+    if (spec.copy || target === CORE_PATHS.kernel || target === CORE_PATHS.initrd || blob.size <= 16 * 1024 * 1024) {
       writeFile(target, new Uint8Array(await blob.arrayBuffer()));
     } else {
       const mountDir = `${dir}/.blob-${name}`;
       mkdirp(mountDir);
       FS.mount(FS.filesystems.WORKERFS ?? Module.WORKERFS, {blobs: [{name, data: blob}]}, mountDir);
+      cacheBlobReads(FS.lookupPath(`${mountDir}/${name}`).node, blob.size);
       FS.symlink(`${mountDir}/${name}`, target);
     }
   } else if (spec instanceof ArrayBuffer || ArrayBuffer.isView(spec)) {
@@ -117,7 +167,7 @@ async function boot(msg) {
   const started = performance.now();
   Module = await factory({
     locateFile: path => new URL(path, msg.coreUrl).href,
-    print: text => logLine('out', text),
+    stdout: stdoutByte,
     printErr: text => logLine('err', text),
     onAbort: what => { flushLog(); send({type: 'abort', message: String(what)}); },
     onExit: status => { flushLog(); send({type: 'exited', status}); },
@@ -126,11 +176,20 @@ async function boot(msg) {
   FS = Module.FS;
   installHostPorts(Module.PThread);
 
+  // GLib's temporary directory is /var/tmp in the pinned build. QEMU uses
+  // it for private writable overlays when a local read-only file is booted
+  // with -snapshot. Emscripten only creates /tmp by default.
+  mkdirp('/var/tmp');
+  FS.chmod('/var/tmp', 0o1777);
   mkdirp(CORE_PATHS.dir);
   const files = msg.files || {};
   const present = {
     bios: await placeFile(files.bios, CORE_PATHS.bios),
+    vgabios: await placeFile(files.vgabios, CORE_PATHS.vgabios),
+    linuxboot: files.linuxboot ? await placeFile(files.linuxboot, CORE_PATHS.linuxboot) : false,
     hdd: await placeFile(files.hdd, CORE_PATHS.hdd),
+    kernel: files.kernel ? await placeFile(files.kernel, CORE_PATHS.kernel) : false,
+    initrd: files.initrd ? await placeFile(files.initrd, CORE_PATHS.initrd) : false,
   };
   if (files.disc) {
     present.disc = nextDiscPath();
@@ -138,15 +197,16 @@ async function boot(msg) {
   }
   const args = [...buildArguments(msg.settings, present), ...(msg.args || [])];
   const memory = Module.wasmMemory;
-  const ptr = {stats: Module._qemu_web_stats_ptr()};
+  const ptr = {stats: Number(Module._qemu_web_stats_ptr())};
+  if (typeof Module._qemu_web_stats_ptr() === 'bigint') toPtr = BigInt;
   const layout = {};
 
   const reference = msg.x87 === 'reference';
   if (msg.x87 && !['fast', 'reference'].includes(msg.x87)) throw new Error('Invalid x87 mode');
   if (Module._xemu_web_x87_configure && Module._tci_wasm_jit_set_x87_options) {
-    ptr.x87 = Module._xemu_web_x87_configure(reference ? 1 : 0, msg.x87Profile ? 1 : 0);
-    ptr.x87Jit = Module._tci_wasm_jit_set_x87_options(reference ? 1 : 0,
-      msg.x87Cache ? 1 : 0, msg.x87Profile ? 1 : 0);
+    ptr.x87 = Number(Module._xemu_web_x87_configure(reference ? 1 : 0, msg.x87Profile ? 1 : 0));
+    ptr.x87Jit = Number(Module._tci_wasm_jit_set_x87_options(reference ? 1 : 0,
+      msg.x87Cache ? 1 : 0, msg.x87Profile ? 1 : 0));
   } else if (reference || msg.x87Cache || msg.x87Profile) {
     throw new Error('This core does not support x87 diagnostics; rebuild the core');
   }
@@ -194,7 +254,7 @@ function command(msg) {
   if (!Module) throw new Error('Core is not booted');
   const arg = Module.stringToNewUTF8(msg.arg ?? '');
   try {
-    const rc = Module._qemu_web_command(msg.id, msg.cmd, arg);
+    const rc = Module._qemu_web_command(msg.id, msg.cmd, toPtr(arg));
     if (rc !== 0) send({type: 'command-result', id: msg.id, ok: false, error: 'Unknown command'});
   } finally {
     Module._free(arg);

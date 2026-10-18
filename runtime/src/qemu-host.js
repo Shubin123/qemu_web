@@ -1,6 +1,6 @@
 // Page API for the i386 PC browser engine. GPL-2.0-or-later.
-import {buildArguments} from './qemu-config.js';
-export const Commands = Object.freeze({PAUSE:1, RESUME:2, RESET:3, POWER_OFF:4, KEY:5});
+import {buildArguments, CORE_PATHS} from './qemu-config.js';
+export const Commands = Object.freeze({PAUSE:1, RESUME:2, RESET:3, POWER_OFF:4, KEY:5, POINTER:6});
 const STATS = {presented: 0, consumed: 1, maxInflight: 2, vblanks: 3, width: 4, height: 5, paused: 6, running: 7, guestFlips: 8};
 
 export class QemuHost extends EventTarget {
@@ -34,7 +34,9 @@ export class QemuHost extends EventTarget {
         memoryOrder = 'strict', x87 = 'fast', x87Cache = false, x87Profile = false} = {}) {
     if (!['fast', 'reference'].includes(x87)) throw new Error('Invalid x87 mode');
     if (this.worker) throw new Error('Already booted');
-    buildArguments(settings, {...files, disc: files.disc ? '/media/disc.iso' : ''});
+    buildArguments(settings, {...files, disc: files.disc ? '/media/disc.iso' : '',
+                              kernel: files.kernel ? CORE_PATHS.kernel : '',
+                              initrd: files.initrd ? CORE_PATHS.initrd : ''});
     if (!['strict', 'relaxed', 'auto'].includes(memoryOrder)) throw new Error('Invalid memory order');
     this._started = false;
     this._readyMessage = null;
@@ -189,6 +191,17 @@ export class QemuHost extends EventTarget {
   key(qcode, down) {
     if (typeof qcode !== 'string' || !/^[a-z0-9_-]+$/.test(qcode)) return Promise.reject(new Error('Invalid key code'));
     return this.command(Commands.KEY, `${down ? '+' : '-'}${qcode}`); }
+
+  /**
+   * Absolute pointer event for a tablet device (settings.pointer 'tablet'):
+   * x and y in 0..1 of the display, buttons bit 0 left, 1 right, 2 middle;
+   * wheel < 0 scrolls up.
+   */
+  pointer(x, y, buttons = 0, wheel = 0) {
+    const to = v => Math.round(Math.min(1, Math.max(0, Number(v) || 0)) * 32767);
+    if (!Number.isInteger(buttons) || buttons < 0 || buttons > 7) return Promise.reject(new Error('Invalid buttons'));
+    return this.command(Commands.POINTER, `${to(x)},${to(y)},${buttons},${Math.sign(wheel)}`);
+  }
 
   getX87Stats() {
     if (!this.memory || !this.ptr?.x87) return null;

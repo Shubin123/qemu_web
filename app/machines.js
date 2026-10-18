@@ -1,7 +1,7 @@
 // These are guest architectures, independent of the computer running the browser.
 export const architectures = [
-  {id:'i386',name:'Intel / AMD 32-bit (x86)',available:true},
-  {id:'x86_64',name:'Intel / AMD 64-bit (x86-64)',available:false},
+  {id:'i386',name:'Intel / AMD 32-bit (x86)',available:true,coreUrl:'./cores/qemu/qemu-core.js'},
+  {id:'x86_64',name:'Intel / AMD 64-bit (x86-64)',available:true,coreUrl:'./cores/qemu-x86_64-wasm64/qemu-core.js'},
   {id:'aarch64',name:'ARM 64-bit (AArch64)',available:false},
 ];
 
@@ -49,7 +49,7 @@ export const systems = [
   {id:'ubuntu',name:'Ubuntu 24.04',architectures:['x86_64','aarch64']},
   {id:'fedora',name:'Fedora',architectures:['x86_64','aarch64']},
   {id:'windows',name:'Windows 11',architectures:['x86_64','aarch64']},
-  {id:'templeos',name:'TempleOS',architectures:['i386','x86_64'],
+  {id:'templeos',name:'TempleOS',architectures:['x86_64','i386'],
    fixture:{
      id:'templeos',
      name:'TempleOS V5.03',
@@ -60,7 +60,7 @@ export const systems = [
      size:17817600,
      sha256:'a7e2a4d940852b9680fa71ff11faf66daccd5db11741110ae43d54f72a245fdf',
      format:'iso',
-     memory:128,
+     memory:512,
    }},
 ];
 export const cdnFixtures = Object.freeze(Object.fromEntries(
@@ -81,10 +81,13 @@ export function selectedBootOptions({architecture,system,bios,disk,disc,format='
   if(!effectiveBios)throw new Error('Choose a local PC BIOS to begin.');
   const sys=systems.find(item=>item.id===system);
   const effectiveDisc=disc||(sys?.fixture?.streamUrl?sys.fixture:null);
+  const is64=architecture==='x86_64';
+  const machine=architectures.find(item=>item.id===architecture);
   return {
     architecture,
+    coreUrl:machine?.coreUrl||(is64?'./cores/qemu-x86_64-wasm64/qemu-core.js':'./cores/qemu/qemu-core.js'),
     files:{bios:effectiveBios,...(disk?{hdd:disk}:{}),...(effectiveDisc?{disc:effectiveDisc}:{} )},
-    settings:{cpu:'pentium3',diskFormat:format,memory:Number(memory)},
+    settings:{cpu:is64?'qemu64':'pentium3',diskFormat:format,memory:Number(memory)},
     // The pinned runtime disables its default serial port; add COM1 explicitly.
     args:[...(effectiveDisc?['-boot','order=dc']:[]),...(serial?['-chardev','stdio,id=console','-device','isa-serial,chardev=console,index=0']:[])],
   };

@@ -113,10 +113,10 @@ updateBiosSource();
 el('btn-templeos').onclick=async()=>{
   if(state!=='idle')return;
   el('os').value='templeos';
-  const system=systems.find(item=>item.id==='templeos');
-  if(!system.architectures.includes(el('architecture').value))el('architecture').value=system.architectures[0];
-  if(el('memory'))el('memory').value='128';
+  el('architecture').value='x86_64';
+  if(el('memory'))el('memory').value='512';
   compatibility();
+  const system=systems.find(item=>item.id==='templeos');
   const fix=system?.fixture;
   if(fix){
     const cached=await isCached(fix.streamUrl);
@@ -132,7 +132,9 @@ el('btn-templeos').onclick=async()=>{
 
 function compatibility(){
   const problem=machineProblem(el('architecture').value,el('os').value);
-  el('compatibility-note').textContent=problem||'32-bit engine available. OS boot compatibility has not been verified; memory is limited to 128 MiB.';
+  el('compatibility-note').textContent=problem||(el('architecture').value==='x86_64'
+    ?'64-bit engine available. OS boot compatibility has not been verified; memory is configurable up to 512 MiB.'
+    :'32-bit engine available. OS boot compatibility has not been verified; memory is limited to 128 MiB.');
   el('start').disabled=state!=='idle'||!!problem;
   el('selection-note').hidden=!problem;el('selection-note').textContent=problem;
   updateFixture();
@@ -233,7 +235,9 @@ window.bootPc=async options=>{
   if(!crossOriginIsolated||typeof SharedArrayBuffer==='undefined')throw new Error('PC startup requires cross-origin isolation. Reload the page once setup finishes.');
   bootOptions={...options,files:Object.fromEntries(Object.entries(options.files||{}).map(([key,value])=>[key,value instanceof ArrayBuffer?value.slice(0):ArrayBuffer.isView(value)?value.slice():value]))};
   host?.terminate();keys.clear();paused=false;
-  const session=new QemuHost({canvas});host=session;window.pcHost=session;
+  const arch=architectures.find(a=>a.id===(options.architecture??'i386'));
+  const coreUrl=options.coreUrl||arch?.coreUrl||'./cores/qemu/qemu-core.js';
+  const session=new QemuHost({canvas,coreUrl:new URL(coreUrl,document.baseURI)});host=session;window.pcHost=session;
   const current=()=>host===session;
   const finish=message=>{if(!current())return;host=null;window.pcHost=null;session.terminate();keys.clear();paused=false;controls('idle');status(message);};
   session.addEventListener('log',e=>{if(current())log(e.detail.lines);});

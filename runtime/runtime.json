@@ -2,27 +2,26 @@
   "schemaVersion": 1,
   "engineCommit": "c5e0265",
   "coreId": "sha256:381fc7f9f84e384d4b9afdc18b095e0d8d39196ef0a66373f4bc0f9b53f21e41",
+  "cores": {
+    "i386": "sha256:381fc7f9f84e384d4b9afdc18b095e0d8d39196ef0a66373f4bc0f9b53f21e41",
+    "x86_64": "sha256:ff9e35ded3d93cdd9b11812c689fdf0594282fc71f7ab344b60b78272c58d750"
+  },
   "source": "https://github.com/Shubin123/qemu_web/releases/download/engine-c5e0265/qemu-emscripten-c5e0265-source.tar.gz",
   "files": [
     {
-      "path": "src/qemu-config.js",
-      "size": 1957,
-      "sha256": "26319694a37051e02730c4dd68f80c10deeb775e5f11ce1609608204e392c39a"
+      "path": "cores/qemu-x86_64-wasm64/qemu-core.build.json",
+      "size": 821,
+      "sha256": "ab53b18722877c9f138729ded4a262b5c3a2f4bfa9ca6fa7277de53f93ec0e61"
     },
     {
-      "path": "src/qemu-core-worker.js",
-      "size": 9058,
-      "sha256": "3bcb7d4fdee750ad3a6d788d14cc975c40112e3b4d9504a8b44b65ab925fd28c"
+      "path": "cores/qemu-x86_64-wasm64/qemu-core.js",
+      "size": 170102,
+      "sha256": "3b6ff355975bf7651be4ae2e085fa237bf2ee8e901953cde219ed5f1d4fa737e"
     },
     {
-      "path": "src/qemu-host.js",
-      "size": 8919,
-      "sha256": "7fbca6d51fc89cd6077f925820491d2f262c2610bcd4a10bb31e1dc5a414c180"
-    },
-    {
-      "path": "src/qemu-opfs-fs.js",
-      "size": 4548,
-      "sha256": "dca2b692130a57ea3c4be0781380a16f366dfd4cad72ebec2830e90dea0035ec"
+      "path": "cores/qemu-x86_64-wasm64/qemu-core.wasm",
+      "size": 9419321,
+      "sha256": "ff9e35ded3d93cdd9b11812c689fdf0594282fc71f7ab344b60b78272c58d750"
     },
     {
       "path": "cores/qemu/qemu-core.build.json",
@@ -38,6 +37,36 @@
       "path": "cores/qemu/qemu-core.wasm",
       "size": 8131312,
       "sha256": "381fc7f9f84e384d4b9afdc18b095e0d8d39196ef0a66373f4bc0f9b53f21e41"
+    },
+    {
+      "path": "src/qemu-blob-cache.js",
+      "size": 2039,
+      "sha256": "9aad4aa7f049cbf2e02fae07045f8e67f2245279089a36af3f18d5cc2b062780"
+    },
+    {
+      "path": "src/qemu-cdn.js",
+      "size": 2537,
+      "sha256": "50e857e723770512c8616f9d934ee997e219493d720b3afecd5f82e3e3f05214"
+    },
+    {
+      "path": "src/qemu-config.js",
+      "size": 3810,
+      "sha256": "165cad89b2aadaa365132c51e9dd3fcd23f20198435c0901ff7abf19409c4296"
+    },
+    {
+      "path": "src/qemu-core-worker.js",
+      "size": 11830,
+      "sha256": "cc87ea979ae278844c635c439a56c70c9a856633188c825d2a6c9447b9cf7398"
+    },
+    {
+      "path": "src/qemu-host.js",
+      "size": 9631,
+      "sha256": "c553351d292b524d0cb0d5d693dd3a609ca59f428dbb028cca9b7b74ded5c924"
+    },
+    {
+      "path": "src/qemu-opfs-fs.js",
+      "size": 4548,
+      "sha256": "dca2b692130a57ea3c4be0781380a16f366dfd4cad72ebec2830e90dea0035ec"
     }
   ]
 }
