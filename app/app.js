@@ -273,10 +273,14 @@ el('boot').addEventListener('submit',async e=>{
     if(source==='custom'){
       bios=el('bios').files[0];
       if(!bios)throw new Error('Choose a local PC BIOS file to begin.');
+      if(defaultVgaBios?.streamUrl){
+        vgabios=await fetchWithCache(defaultVgaBios.streamUrl,null,defaultVgaBios.fallbackUrl).catch(()=>undefined);
+      }
     }else if(source==='builtin-test'){
       status('Preparing built-in diagnostic BIOS…');
       const flash=buildFlash();
       bios=new Blob([flash],{type:'application/octet-stream'});
+      vgabios=null;
     }else{
       status('Preparing open source SeaBIOS…');
       const sea=defaultBioses.find(b=>b.id==='seabios')||defaultBioses[0];
@@ -286,7 +290,7 @@ el('boot').addEventListener('submit',async e=>{
       }
     }
     await window.bootPc(selectedBootOptions({architecture:el('architecture').value,system:el('os').value,
-      bios,disk:el('disk').files[0],disc,
+      bios,vgabios,disk:el('disk').files[0],disc,
       format:el('format').value,memory:el('memory').value,serial:el('serial').checked}));
   }catch(e){if(state==='idle'&&e.message!=='Core terminated')status(e.message);}
 });

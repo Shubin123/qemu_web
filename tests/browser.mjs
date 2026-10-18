@@ -264,6 +264,7 @@ try{
   assert.equal(await page.locator('#start').isEnabled(),true);
   await page.click('#start');
   await page.waitForFunction(()=>document.querySelector('#status').textContent.startsWith('PC running.'),null,{timeout:30000});
+  await page.waitForFunction(()=>window.pcHost?.getStats()?.width>0&&window.pcHost?.getStats()?.framesPresented>0,null,{timeout:30000});
   await page.click('#stop');
   await page.waitForFunction(()=>document.querySelector('#status').textContent==='PC stopped.');
 

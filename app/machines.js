@@ -74,7 +74,7 @@ export function machineProblem(architecture,system='custom') {
   if(!os.architectures.includes(architecture))return `${os.name} requires a different guest architecture.`;
   return '';
 }
-export function selectedBootOptions({architecture,system,bios,disk,disc,format='raw',memory=64,serial=false}) {
+export function selectedBootOptions({architecture,system,bios,disk,disc,format='raw',memory=64,serial=false,vgabios}) {
   const problem=machineProblem(architecture,system);
   if(problem)throw new Error(problem);
   const effectiveBios=bios??defaultBioses[0];
@@ -83,10 +83,11 @@ export function selectedBootOptions({architecture,system,bios,disk,disc,format='
   const effectiveDisc=disc||(sys?.fixture?.streamUrl?sys.fixture:null);
   const is64=architecture==='x86_64';
   const machine=architectures.find(item=>item.id===architecture);
+  const effectiveVgaBios=vgabios!==undefined?vgabios:(effectiveBios?.id==='builtin-test'?null:defaultVgaBios);
   return {
     architecture,
     coreUrl:machine?.coreUrl||(is64?'./cores/qemu-x86_64-wasm64/qemu-core.js':'./cores/qemu/qemu-core.js'),
-    files:{bios:effectiveBios,...(disk?{hdd:disk}:{}),...(effectiveDisc?{disc:effectiveDisc}:{} )},
+    files:{bios:effectiveBios,...(effectiveVgaBios?{vgabios:effectiveVgaBios}:{}),...(disk?{hdd:disk}:{}),...(effectiveDisc?{disc:effectiveDisc}:{} )},
     settings:{cpu:is64?'qemu64':'pentium3',diskFormat:format,memory:Number(memory)},
     // The pinned runtime disables its default serial port; add COM1 explicitly.
     args:[...(effectiveDisc?['-boot','order=dc']:[]),...(serial?['-chardev','stdio,id=console','-device','isa-serial,chardev=console,index=0']:[])],
