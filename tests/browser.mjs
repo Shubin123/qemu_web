@@ -39,7 +39,10 @@ try{
   await page.selectOption('#os','templeos');
   assert.equal(await page.locator('#architecture').inputValue(),'x86_64');
   assert.equal(await page.locator('#start').isDisabled(),true);
+  assert.equal(await page.locator('#fixture-notice').isVisible(),true);
+  assert.match(await page.locator('#fixture-info').textContent(),/TempleOS V5\.03/);
   await page.selectOption('#os','custom');
+  assert.equal(await page.locator('#fixture-notice').isVisible(),false);
   await page.selectOption('#architecture','i386');
   assert.equal(await page.locator('#start').isEnabled(),true);
   assert.equal(await page.locator('#os-coverage tr').count(),7);

@@ -9,11 +9,51 @@ for(const item of systems.filter(item=>item.id!=='custom')){
   const row=el('os-coverage').insertRow();
   for(const text of [item.name,item.architectures.join(', '),'Not tested'])row.insertCell().textContent=text;
 }
+const fixtureBlobs = new Map();
+function updateFixture(){
+  const sys=systems.find(item=>item.id===el('os').value);
+  const fix=sys?.fixture;
+  if(!fix){el('fixture-notice').hidden=true;return;}
+  el('fixture-notice').hidden=false;
+  const loaded=fixtureBlobs.has(fix.id);
+  el('fixture-info').textContent=`${fix.name} fixture (${(fix.size/1048576).toFixed(1)} MB from archive.org CDN — downloads locally)`;
+  el('fixture-download').textContent=loaded?'✓ Downloaded locally':'Download locally to browser';
+  el('fixture-download').disabled=loaded;
+  el('fixture-progress').hidden=!loaded;
+  if(loaded)el('fixture-progress').textContent=`Ready: ${(fix.size/1048576).toFixed(1)} MB in local browser memory.`;
+}
+async function downloadFixture(fix){
+  if(fixtureBlobs.has(fix.id))return fixtureBlobs.get(fix.id);
+  el('fixture-download').disabled=true;
+  el('fixture-progress').hidden=false;
+  el('fixture-progress').textContent=`Downloading ${fix.name} locally from CDN…`;
+  status(`Downloading ${fix.name} locally from CDN (${(fix.size/1048576).toFixed(1)} MB)…`);
+  try{
+    const res=await fetch(fix.streamUrl);
+    if(!res.ok)throw new Error(`HTTP ${res.status}`);
+    const blob=await res.blob();
+    fixtureBlobs.set(fix.id,blob);
+    el('fixture-download').textContent='✓ Downloaded locally';
+    el('fixture-progress').textContent=`Downloaded locally (${(blob.size/1048576).toFixed(1)} MB).`;
+    status(`${fix.name} downloaded locally to browser memory.`);
+    return blob;
+  }catch(err){
+    el('fixture-download').disabled=false;
+    el('fixture-progress').textContent=`Download failed: ${err.message}`;
+    status(`Download failed: ${err.message}`);
+    throw err;
+  }
+}
+el('fixture-download').onclick=()=>{
+  const sys=systems.find(item=>item.id===el('os').value);
+  if(sys?.fixture)downloadFixture(sys.fixture).catch(()=>{});
+};
 function compatibility(){
   const problem=machineProblem(el('architecture').value,el('os').value);
   el('compatibility-note').textContent=problem||'32-bit engine available. OS boot compatibility has not been verified; memory is limited to 128 MiB.';
   el('start').disabled=state!=='idle'||!!problem;
   el('selection-note').hidden=!problem;el('selection-note').textContent=problem;
+  updateFixture();
 }
 el('architecture').addEventListener('change',compatibility);
 el('os').addEventListener('change',()=>{
@@ -40,7 +80,7 @@ el('setup-menu').addEventListener('click',e=>{
 });
 el('menu-reset').onclick=()=>{
   if(state!=='idle')return;
-  el('boot').reset();el('architecture').value='i386';el('os').value='custom';bootOptions=null;
+  el('boot').reset();el('architecture').value='i386';el('os').value='custom';bootOptions=null;fixtureBlobs.clear();
   for(const details of el('setup-menu').querySelectorAll('details'))details.open=false;
   compatibility();el('menu-notice').hidden=false;el('menu-notice').textContent='Defaults restored. Choose your BIOS and boot files again.';
   status('Menu defaults restored. Choose a local PC BIOS to begin.');
@@ -103,8 +143,13 @@ el('boot').addEventListener('submit',async e=>{
   e.preventDefault();if(state!=='idle')return;
   closeMenu();
   try{
+    const sys=systems.find(item=>item.id===el('os').value);
+    let disc=el('disc').files[0];
+    if(!disc&&sys?.fixture){
+      disc=fixtureBlobs.get(sys.fixture.id)||await downloadFixture(sys.fixture);
+    }
     await window.bootPc(selectedBootOptions({architecture:el('architecture').value,system:el('os').value,
-      bios:el('bios').files[0],disk:el('disk').files[0],disc:el('disc').files[0],
+      bios:el('bios').files[0],disk:el('disk').files[0],disc,
       format:el('format').value,memory:el('memory').value,serial:el('serial').checked}));
   }catch(e){if(state==='idle'&&e.message!=='Core terminated')status(e.message);}
 });
