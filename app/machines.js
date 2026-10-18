@@ -8,32 +8,37 @@ export const architectures = [
 export const defaultBioses = [
   {
     id: 'seabios',
-    name: 'SeaBIOS 256K (Default PC BIOS)',
+    name: 'SeaBIOS 256K (Open Source — LGPL)',
     fileName: 'bios-256k.bin',
-    url: 'https://raw.githubusercontent.com/qemu/qemu/master/pc-bios/bios-256k.bin',
-    streamUrl: 'https://raw.githubusercontent.com/qemu/qemu/master/pc-bios/bios-256k.bin',
+    url: './firmware/bios-256k.bin',
+    streamUrl: './firmware/bios-256k.bin',
+    fallbackUrl: 'https://raw.githubusercontent.com/qemu/qemu/master/pc-bios/bios-256k.bin',
     size: 262144,
     sha256: 'ae6f6aa973aaccc143f57aa960fb035fd9de4daee4ad0cd713322f8c259e7650',
     type: 'bios',
+    license: 'LGPL-3.0-or-later',
   },
   {
     id: 'builtin-test',
-    name: 'Built-in Diagnostic BIOS (Instant / Offline)',
+    name: 'Built-in Diagnostic BIOS (Open Source — GPL)',
     fileName: 'test-flash.bin',
     type: 'generated',
     size: 262144,
+    license: 'GPL-2.0-or-later',
   },
 ];
 
 export const defaultVgaBios = {
   id: 'vgabios',
-  name: 'SeaVGABIOS Standard VGA',
+  name: 'SeaVGABIOS Standard VGA (Open Source — LGPL)',
   fileName: 'vgabios-stdvga.bin',
-  url: 'https://raw.githubusercontent.com/qemu/qemu/master/pc-bios/vgabios-stdvga.bin',
-  streamUrl: 'https://raw.githubusercontent.com/qemu/qemu/master/pc-bios/vgabios-stdvga.bin',
+  url: './firmware/vgabios-stdvga.bin',
+  streamUrl: './firmware/vgabios-stdvga.bin',
+  fallbackUrl: 'https://raw.githubusercontent.com/qemu/qemu/master/pc-bios/vgabios-stdvga.bin',
   size: 39424,
   sha256: 'e8fc9e55790dbe3cb31f019a3deb57206ba6c54f5e581adb2ab2677a9d391472',
   type: 'vgabios',
+  license: 'LGPL-2.0-or-later',
 };
 
 export const systems = [

@@ -95,8 +95,8 @@ function updateBiosSource(){
   const source=el('bios-source')?.value||'seabios';
   if(el('bios-custom-box'))el('bios-custom-box').hidden=source!=='custom';
   if(el('bios-info')){
-    if(source==='seabios')el('bios-info').textContent='Standard open source SeaBIOS (cached in browser storage).';
-    else if(source==='builtin-test')el('bios-info').textContent='Built-in diagnostic test BIOS (runs instantly offline).';
+    if(source==='seabios')el('bios-info').textContent='Open source SeaBIOS 256K (bundled LGPL firmware, ready to boot).';
+    else if(source==='builtin-test')el('bios-info').textContent='Open source diagnostic test BIOS (runs instantly offline).';
     else el('bios-info').textContent='Upload an authentic x86 PC BIOS ROM (.bin / .rom).';
   }
 }
@@ -268,11 +268,11 @@ el('boot').addEventListener('submit',async e=>{
       const flash=buildFlash();
       bios=new Blob([flash],{type:'application/octet-stream'});
     }else{
-      status('Preparing default SeaBIOS…');
+      status('Preparing open source SeaBIOS…');
       const sea=defaultBioses.find(b=>b.id==='seabios')||defaultBioses[0];
-      bios=await fetchWithCache(sea.streamUrl);
+      bios=await fetchWithCache(sea.streamUrl,null,sea.fallbackUrl);
       if(defaultVgaBios?.streamUrl){
-        vgabios=await fetchWithCache(defaultVgaBios.streamUrl).catch(()=>undefined);
+        vgabios=await fetchWithCache(defaultVgaBios.streamUrl,null,defaultVgaBios.fallbackUrl).catch(()=>undefined);
       }
     }
     await window.bootPc(selectedBootOptions({architecture:el('architecture').value,system:el('os').value,

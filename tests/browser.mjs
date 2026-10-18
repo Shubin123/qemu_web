@@ -150,9 +150,10 @@ try{
   // BIOS defaults and source selection
   assert.equal(await page.locator('#bios-source').inputValue(),'seabios');
   assert.equal(await page.locator('#bios-custom-box').isVisible(),false);
+  assert.match(await page.locator('#bios-info').textContent(),/SeaBIOS.*bundled/i);
   await page.selectOption('#bios-source','builtin-test');
   assert.equal(await page.locator('#bios-custom-box').isVisible(),false);
-  assert.match(await page.locator('#bios-info').textContent(),/Built-in diagnostic/);
+  assert.match(await page.locator('#bios-info').textContent(),/diagnostic/i);
   await page.selectOption('#bios-source','custom');
   assert.equal(await page.locator('#bios-custom-box').isVisible(),true);
 

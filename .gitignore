@@ -10,5 +10,6 @@ tests/os.local.json
 *.img
 *.qcow2
 *.bin
+!app/firmware/*.bin
 *.sav
 *.state

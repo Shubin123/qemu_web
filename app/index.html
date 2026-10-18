@@ -96,15 +96,15 @@
         <h2>💿 Boot Media</h2>
         <label for="bios-source">PC BIOS
           <select id="bios-source" form="boot">
-            <option value="seabios" selected>Default: SeaBIOS 256K (QEMU Standard PC)</option>
-            <option value="builtin-test">Default: Built-in Diagnostic BIOS (Instant / Offline)</option>
+            <option value="seabios" selected>SeaBIOS 256K (Open Source — LGPL, Bundled)</option>
+            <option value="builtin-test">Diagnostic BIOS (Open Source — GPL, Built-in)</option>
             <option value="custom">Custom local BIOS file…</option>
           </select>
         </label>
         <div id="bios-custom-box" hidden>
           <label>Choose local BIOS file <input id="bios" type="file" form="boot"></label>
         </div>
-        <p id="bios-info" class="mode-help">Standard open source SeaBIOS. Downloads once, then cached in browser.</p>
+        <p id="bios-info" class="mode-help">Open source SeaBIOS 256K (bundled LGPL firmware, ready to boot).</p>
         <label>Boot ISO (optional) <input id="disc" type="file" accept=".iso" form="boot"></label>
         <div id="fixture-notice" class="fixture-box" hidden>
           <span id="fixture-info"></span>

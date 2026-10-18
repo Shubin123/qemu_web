@@ -67,7 +67,7 @@ export async function deleteCached(url) {
   }
 }
 
-export async function fetchWithCache(url, onProgress) {
+export async function fetchWithCache(url, onProgress, fallbackUrl) {
   if (!url) throw new Error('Missing URL to fetch');
   // Check cache first
   const existing = await getCachedBlob(url);
@@ -75,9 +75,26 @@ export async function fetchWithCache(url, onProgress) {
     if (onProgress) onProgress({ loaded: existing.size, total: existing.size, cached: true });
     return existing;
   }
+  if (fallbackUrl) {
+    const existingFallback = await getCachedBlob(fallbackUrl);
+    if (existingFallback) {
+      if (onProgress) onProgress({ loaded: existingFallback.size, total: existingFallback.size, cached: true });
+      return existingFallback;
+    }
+  }
 
-  const response = await fetch(url);
-  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  let response;
+  try {
+    response = await fetch(url);
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  } catch (err) {
+    if (fallbackUrl) {
+      response = await fetch(fallbackUrl);
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    } else {
+      throw err;
+    }
+  }
 
   const contentLength = Number(response.headers.get('content-length')) || 0;
   let blob;
