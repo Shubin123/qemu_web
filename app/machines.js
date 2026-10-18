@@ -49,7 +49,7 @@ export const systems = [
   {id:'ubuntu',name:'Ubuntu 24.04',architectures:['x86_64','aarch64']},
   {id:'fedora',name:'Fedora',architectures:['x86_64','aarch64']},
   {id:'windows',name:'Windows 11',architectures:['x86_64','aarch64']},
-  {id:'templeos',name:'TempleOS',architectures:['x86_64'],
+  {id:'templeos',name:'TempleOS',architectures:['i386','x86_64'],
    fixture:{
      id:'templeos',
      name:'TempleOS V5.03',
@@ -60,7 +60,7 @@ export const systems = [
      size:17817600,
      sha256:'a7e2a4d940852b9680fa71ff11faf66daccd5db11741110ae43d54f72a245fdf',
      format:'iso',
-     memory:512,
+     memory:128,
    }},
 ];
 export const cdnFixtures = Object.freeze(Object.fromEntries(

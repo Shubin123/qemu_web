@@ -115,6 +115,7 @@ el('btn-templeos').onclick=async()=>{
   el('os').value='templeos';
   const system=systems.find(item=>item.id==='templeos');
   if(!system.architectures.includes(el('architecture').value))el('architecture').value=system.architectures[0];
+  if(el('memory'))el('memory').value='128';
   compatibility();
   const fix=system?.fixture;
   if(fix){
@@ -255,7 +256,12 @@ el('boot').addEventListener('submit',async e=>{
     const sys=systems.find(item=>item.id===el('os').value);
     let disc=el('disc').files[0];
     if(!disc&&sys?.fixture){
-      disc=await fetchWithCache(sys.fixture.streamUrl);
+      status(`Preparing ${sys.fixture.name}…`);
+      disc=await fetchWithCache(sys.fixture.streamUrl,({loaded,total,cached})=>{
+        if(!cached&&total){
+          status(`Downloading ${sys.fixture.name} (${Math.round((loaded/total)*100)}%)…`);
+        }
+      },sys.fixture.url);
     }
     const source=el('bios-source')?.value||'seabios';
     let bios=null;

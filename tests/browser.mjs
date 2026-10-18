@@ -13,6 +13,12 @@ try{
   const page=await browser.newPage();
   const errors=[];
   page.on('pageerror',e=>errors.push(e.message));
+  await page.route('https://archive.org/**',route=>route.fulfill({
+    status:200,
+    contentType:'application/octet-stream',
+    body:Buffer.alloc(2048),
+    headers:{'content-length':'2048','access-control-allow-origin':'*'}
+  }));
 
   await page.goto(url);
   await page.waitForFunction(()=>window.bootPc&&window.QemuLayout);
@@ -125,7 +131,9 @@ try{
   // 5. TempleOS CDN Preset Button & Machine Setup
   await page.click('#btn-templeos');
   assert.equal(await page.locator('#os').inputValue(),'templeos');
-  assert.equal(await page.locator('#architecture').inputValue(),'x86_64');
+  assert.equal(await page.locator('#architecture').inputValue(),'i386');
+  assert.equal(await page.locator('#memory').inputValue(),'128');
+  assert.equal(await page.locator('#start').isEnabled(),true);
   assert.equal(await page.locator('#fixture-notice').isVisible(),true);
   assert.match(await page.locator('#fixture-info').textContent(),/TempleOS V5\.03/);
 
@@ -137,7 +145,7 @@ try{
   }
 
   await page.selectOption('#architecture','i386');
-  await page.selectOption('#os','templeos');
+  await page.selectOption('#os','ubuntu');
   assert.equal(await page.locator('#architecture').inputValue(),'x86_64');
   assert.equal(await page.locator('#start').isDisabled(),true);
 
@@ -243,6 +251,15 @@ try{
   await page.click('#start');
   await page.waitForFunction(()=>document.querySelector('#status').textContent.startsWith('PC running.'));
   await page.click('#stop');
+  await page.waitForFunction(()=>document.querySelector('#status').textContent==='PC stopped.');
+
+  // Verify Start PC button works after pressing TempleOS button
+  await page.click('#btn-templeos');
+  assert.equal(await page.locator('#start').isEnabled(),true);
+  await page.click('#start');
+  await page.waitForFunction(()=>document.querySelector('#status').textContent.startsWith('PC running.'),null,{timeout:30000});
+  await page.click('#stop');
+  await page.waitForFunction(()=>document.querySelector('#status').textContent==='PC stopped.');
 
   // 7. Responsive viewport check
   await page.setViewportSize({width:390,height:844});

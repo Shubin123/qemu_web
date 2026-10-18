@@ -67,6 +67,9 @@ export async function deleteCached(url) {
   }
 }
 
+const inflightFetches = new Map();
+const inflightListeners = new Map();
+
 export async function fetchWithCache(url, onProgress, fallbackUrl) {
   if (!url) throw new Error('Missing URL to fetch');
   // Check cache first
@@ -83,43 +86,73 @@ export async function fetchWithCache(url, onProgress, fallbackUrl) {
     }
   }
 
-  let response;
-  try {
-    response = await fetch(url);
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-  } catch (err) {
-    if (fallbackUrl) {
-      response = await fetch(fallbackUrl);
+  // Deduplicate concurrent in-flight requests for the same URL
+  if (inflightFetches.has(url)) {
+    if (onProgress) {
+      const listeners = inflightListeners.get(url) || [];
+      listeners.push(onProgress);
+      inflightListeners.set(url, listeners);
+    }
+    return inflightFetches.get(url);
+  }
+
+  const listeners = onProgress ? [onProgress] : [];
+  inflightListeners.set(url, listeners);
+
+  const fetchPromise = (async () => {
+    let response;
+    try {
+      response = await fetch(url);
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    } catch (err) {
+      if (fallbackUrl) {
+        response = await fetch(fallbackUrl);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      } else {
+        throw err;
+      }
+    }
+
+    const contentLength = Number(response.headers.get('content-length')) || 0;
+    let blob;
+
+    const notify = info => {
+      const currentListeners = inflightListeners.get(url) || [];
+      for (const listener of currentListeners) {
+        try { listener(info); } catch (_) {}
+      }
+    };
+
+    if (response.body && typeof response.body.getReader === 'function' && contentLength > 0) {
+      const reader = response.body.getReader();
+      const chunks = [];
+      let received = 0;
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        chunks.push(value);
+        received += value.byteLength;
+        notify({ loaded: received, total: contentLength, cached: false });
+      }
+      blob = new Blob(chunks, { type: 'application/octet-stream' });
     } else {
-      throw err;
+      blob = await response.blob();
+      notify({ loaded: blob.size, total: blob.size, cached: false });
     }
+
+    // Store into persistent browser Cache API
+    await putCachedBlob(url, blob);
+    return blob;
+  })();
+
+  inflightFetches.set(url, fetchPromise);
+  try {
+    return await fetchPromise;
+  } finally {
+    inflightFetches.delete(url);
+    inflightListeners.delete(url);
   }
-
-  const contentLength = Number(response.headers.get('content-length')) || 0;
-  let blob;
-
-  if (response.body && typeof response.body.getReader === 'function' && contentLength > 0) {
-    const reader = response.body.getReader();
-    const chunks = [];
-    let received = 0;
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      chunks.push(value);
-      received += value.byteLength;
-      if (onProgress) onProgress({ loaded: received, total: contentLength, cached: false });
-    }
-    blob = new Blob(chunks, { type: 'application/octet-stream' });
-  } else {
-    blob = await response.blob();
-    if (onProgress) onProgress({ loaded: blob.size, total: blob.size, cached: false });
-  }
-
-  // Store into persistent browser Cache API
-  await putCachedBlob(url, blob);
-  return blob;
 }
 
 export async function getCacheSummary() {
