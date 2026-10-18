@@ -11,9 +11,10 @@ try{
   page.on('pageerror',e=>errors.push(e.message));
   await page.goto(url);await page.waitForFunction(()=>window.bootPc);
   await page.waitForFunction(()=>crossOriginIsolated,null,{timeout:30000});
-  assert.equal(await page.locator('button:visible').count(),2);
+  assert.equal(await page.locator('button:visible').count(),3);
   assert.equal(await page.locator('#start svg.pyramid').count(),1);
   assert.equal(await page.getByRole('button',{name:'Start PC',exact:true}).count(),1);
+  assert.equal(await page.locator('#btn-templeos').isVisible(),true);
   assert.equal(await page.locator('#setup-menu').isVisible(),false);
   // Start without a BIOS guides the user into setup instead of validating a hidden field.
   await page.click('#start');
@@ -29,7 +30,12 @@ try{
   await page.click('#menu-toggle');
   await page.mouse.click(5,5);
   await page.waitForFunction(()=>!document.querySelector('#setup-menu').open);
-  await page.click('#menu-toggle');
+  // Clicking TempleOS on the main page selects the TempleOS fixture and opens setup for BIOS
+  await page.click('#btn-templeos');
+  assert.equal(await page.locator('#setup-menu').isVisible(),true);
+  assert.equal(await page.locator('#os').inputValue(),'templeos');
+  assert.equal(await page.locator('#architecture').inputValue(),'x86_64');
+  assert.equal(await page.locator('#fixture-notice').isVisible(),true);
   for(const architecture of ['x86_64','aarch64']){
     await page.selectOption('#architecture',architecture);
     assert.equal(await page.locator('#start').isDisabled(),true);
@@ -99,9 +105,10 @@ try{
   await page.waitForFunction(()=>document.querySelector('#status').textContent.startsWith('PC running.'));
   await page.click('#stop');
   assert.equal(await page.locator('#start').isEnabled(),true);
-  assert.equal(await page.locator('button:visible').count(),2);
+  assert.equal(await page.locator('button:visible').count(),3);
   assert.equal(await page.locator('#start svg.pyramid').count(),1);
   assert.equal(await page.getByRole('button',{name:'Start PC',exact:true}).count(),1);
+  assert.equal(await page.locator('#btn-templeos').isVisible(),true);
   // Cancel startup, then immediately start again with the same selected BIOS.
   await page.click('#start');await page.click('#stop');await page.click('#start');
   await page.waitForFunction(()=>document.querySelector('#status').textContent.startsWith('PC running.'));

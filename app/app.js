@@ -48,6 +48,25 @@ el('fixture-download').onclick=()=>{
   const sys=systems.find(item=>item.id===el('os').value);
   if(sys?.fixture)downloadFixture(sys.fixture).catch(()=>{});
 };
+el('btn-templeos').onclick=async()=>{
+  if(state!=='idle')return;
+  el('os').value='templeos';
+  const system=systems.find(item=>item.id==='templeos');
+  if(!system.architectures.includes(el('architecture').value))el('architecture').value=system.architectures[0];
+  compatibility();
+  const fix=system?.fixture;
+  if(!el('bios').files.length){
+    openMenu();el('bios').focus();
+    status('TempleOS fixture selected. Choose a PC BIOS to begin.');
+  }
+  if(fix&&!fixtureBlobs.has(fix.id)){
+    downloadFixture(fix).then(()=>{
+      status('TempleOS downloaded locally to browser memory.');
+    }).catch(e=>{
+      status(`Failed to download ${fix.name}: ${e.message}`);
+    });
+  }
+};
 function compatibility(){
   const problem=machineProblem(el('architecture').value,el('os').value);
   el('compatibility-note').textContent=problem||'32-bit engine available. OS boot compatibility has not been verified; memory is limited to 128 MiB.';
@@ -101,6 +120,7 @@ function controls(next){
   el('resume').disabled=state!=='paused';
   el('reset').disabled=!['running','paused'].includes(state);
   el('stop').disabled=!active;
+  el('btn-templeos').disabled=active;
   for(const id of ['bios','disk','disc','format','memory','architecture','os','serial'])el(id).disabled=active;
   el('menu-reset').disabled=active;
   el('setup-state').hidden=!active;
