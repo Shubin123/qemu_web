@@ -147,27 +147,51 @@ try{
   assert.equal(await page.locator('#start').isEnabled(),true);
   assert.equal(await page.locator('#os-coverage tr').count(),7);
 
+  // BIOS defaults and source selection
+  assert.equal(await page.locator('#bios-source').inputValue(),'seabios');
+  assert.equal(await page.locator('#bios-custom-box').isVisible(),false);
+  await page.selectOption('#bios-source','builtin-test');
+  assert.equal(await page.locator('#bios-custom-box').isVisible(),false);
+  assert.match(await page.locator('#bios-info').textContent(),/Built-in diagnostic/);
+  await page.selectOption('#bios-source','custom');
+  assert.equal(await page.locator('#bios-custom-box').isVisible(),true);
+
   // Form options: memory, format, serial
   await page.locator('form details summary').click();
   await page.selectOption('#memory','128');
   await page.selectOption('#format','qcow2');
   await page.check('#serial');
 
-  // Setting files and testing Reset defaults
+  // Test persistent download caching via Cache API
+  await page.evaluate(async()=>{
+    const cache=await caches.open('qemu-downloads-v1');
+    await cache.put('https://example.com/test-fixture.iso',new Response(new Uint8Array([1,2,3,4]),{
+      headers:{'content-type':'application/octet-stream','content-length':'4'}
+    }));
+  });
+  // Trigger storage summary update
+  await page.evaluate(async()=>await window.updateStorageSummary());
+  const storageText=await page.locator('#storage-summary').textContent();
+  assert.match(storageText,/cached download/);
+
+  // Setting custom file and testing Reset defaults
   await page.locator('#bios').setInputFiles({name:'discard.bin',mimeType:'application/octet-stream',buffer:Buffer.from([0])});
+  assert.equal(await page.locator('#bios-source').inputValue(),'custom');
   await page.selectOption('#os','templeos');
   await page.click('#menu-reset');
   assert.match(await page.locator('#menu-notice').textContent(),/Defaults restored/);
   assert.equal(await page.locator('#architecture').inputValue(),'i386');
   assert.equal(await page.locator('#os').inputValue(),'custom');
+  assert.equal(await page.locator('#bios-source').inputValue(),'seabios');
+  assert.equal(await page.locator('#bios-custom-box').isVisible(),false);
   assert.equal(await page.locator('#memory').inputValue(),'64');
   assert.equal(await page.locator('#format').inputValue(),'raw');
   assert.equal(await page.locator('#serial').isChecked(),false);
   assert.equal(await page.locator('#bios').inputValue(),'');
   assert.equal(await page.locator('form details').getAttribute('open'),null);
 
-  // 6. BIOS boot and console checksum verification
-  await page.locator('#bios').setInputFiles({name:'generated-test.bin',mimeType:'application/octet-stream',buffer:Buffer.from(buildFlash(20000000))});
+  // 6. BIOS boot and console checksum verification (using default built-in diagnostic BIOS)
+  await page.selectOption('#bios-source','builtin-test');
 
   await page.evaluate(()=>{
     const boot=window.bootPc;

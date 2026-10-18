@@ -94,15 +94,28 @@
 
       <div class="card" data-widget="media">
         <h2>💿 Boot Media</h2>
-        <label>PC BIOS <input id="bios" type="file" form="boot" required></label>
+        <label for="bios-source">PC BIOS
+          <select id="bios-source" form="boot">
+            <option value="seabios" selected>Default: SeaBIOS 256K (QEMU Standard PC)</option>
+            <option value="builtin-test">Default: Built-in Diagnostic BIOS (Instant / Offline)</option>
+            <option value="custom">Custom local BIOS file…</option>
+          </select>
+        </label>
+        <div id="bios-custom-box" hidden>
+          <label>Choose local BIOS file <input id="bios" type="file" form="boot"></label>
+        </div>
+        <p id="bios-info" class="mode-help">Standard open source SeaBIOS. Downloads once, then cached in browser.</p>
         <label>Boot ISO (optional) <input id="disc" type="file" accept=".iso" form="boot"></label>
         <div id="fixture-notice" class="fixture-box" hidden>
           <span id="fixture-info"></span>
-          <button id="fixture-download" type="button" class="btn-fixture">Download locally to browser</button>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;">
+            <button id="fixture-download" type="button" class="btn-fixture">Download locally to browser</button>
+            <button id="fixture-clear" type="button" class="btn-fixture btn-fixture-secondary" hidden>Remove from cache</button>
+          </div>
           <div id="fixture-progress" class="muted" hidden></div>
         </div>
         <label>Disk (optional) <input id="disk" type="file" form="boot"></label>
-        <p class="mode-help">Choose local files to boot. Files stay on your device; hard disk changes are discarded on stop.</p>
+        <p class="mode-help">Choose local files or default CDN fixtures. Downloads are cached locally in browser storage.</p>
       </div>
 
       <div class="card" data-widget="controls">
@@ -138,6 +151,8 @@
       <div class="card" data-widget="system">
         <h2>ℹ System Info</h2>
         <p class="mode-help">Experimental i386/i440fx target. Audio, networking and x86-64 are not available. Disks opened here are read-only inputs; changes are discarded on stop.</p>
+        <p id="storage-summary" class="mode-help" style="margin-top:8px;"></p>
+        <button id="btn-clear-cache" type="button" class="btn btn-secondary" style="width:auto;padding:3px 8px;font-size:0.72rem;margin-top:4px;" hidden>Clear cached downloads</button>
         <p class="mode-help" style="margin-top:8px;">
           <a href="https://github.com/Shubin123/qemu_web" target="_blank" rel="noopener">Website source</a> ·
           <a href="https://github.com/Shubin123/qemu_web/releases/download/engine-c5e0265/qemu-emscripten-c5e0265-source.tar.gz">Matching engine source (GPL)</a>

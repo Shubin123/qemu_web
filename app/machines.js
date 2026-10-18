@@ -4,6 +4,38 @@ export const architectures = [
   {id:'x86_64',name:'Intel / AMD 64-bit (x86-64)',available:false},
   {id:'aarch64',name:'ARM 64-bit (AArch64)',available:false},
 ];
+
+export const defaultBioses = [
+  {
+    id: 'seabios',
+    name: 'SeaBIOS 256K (Default PC BIOS)',
+    fileName: 'bios-256k.bin',
+    url: 'https://raw.githubusercontent.com/qemu/qemu/master/pc-bios/bios-256k.bin',
+    streamUrl: 'https://raw.githubusercontent.com/qemu/qemu/master/pc-bios/bios-256k.bin',
+    size: 262144,
+    sha256: 'ae6f6aa973aaccc143f57aa960fb035fd9de4daee4ad0cd713322f8c259e7650',
+    type: 'bios',
+  },
+  {
+    id: 'builtin-test',
+    name: 'Built-in Diagnostic BIOS (Instant / Offline)',
+    fileName: 'test-flash.bin',
+    type: 'generated',
+    size: 262144,
+  },
+];
+
+export const defaultVgaBios = {
+  id: 'vgabios',
+  name: 'SeaVGABIOS Standard VGA',
+  fileName: 'vgabios-stdvga.bin',
+  url: 'https://raw.githubusercontent.com/qemu/qemu/master/pc-bios/vgabios-stdvga.bin',
+  streamUrl: 'https://raw.githubusercontent.com/qemu/qemu/master/pc-bios/vgabios-stdvga.bin',
+  size: 39424,
+  sha256: 'e8fc9e55790dbe3cb31f019a3deb57206ba6c54f5e581adb2ab2677a9d391472',
+  type: 'vgabios',
+};
+
 export const systems = [
   {id:'custom',name:'Custom / other OS',architectures:['i386','x86_64','aarch64']},
   {id:'freedos',name:'FreeDOS',architectures:['i386']},
@@ -40,12 +72,13 @@ export function machineProblem(architecture,system='custom') {
 export function selectedBootOptions({architecture,system,bios,disk,disc,format='raw',memory=64,serial=false}) {
   const problem=machineProblem(architecture,system);
   if(problem)throw new Error(problem);
-  if(!bios)throw new Error('Choose a local PC BIOS to begin.');
+  const effectiveBios=bios??defaultBioses[0];
+  if(!effectiveBios)throw new Error('Choose a local PC BIOS to begin.');
   const sys=systems.find(item=>item.id===system);
   const effectiveDisc=disc||(sys?.fixture?.streamUrl?sys.fixture:null);
   return {
     architecture,
-    files:{bios,...(disk?{hdd:disk}:{}),...(effectiveDisc?{disc:effectiveDisc}:{} )},
+    files:{bios:effectiveBios,...(disk?{hdd:disk}:{}),...(effectiveDisc?{disc:effectiveDisc}:{} )},
     settings:{cpu:'pentium3',diskFormat:format,memory:Number(memory)},
     // The pinned runtime disables its default serial port; add COM1 explicitly.
     args:[...(effectiveDisc?['-boot','order=dc']:[]),...(serial?['-chardev','stdio,id=console','-device','isa-serial,chardev=console,index=0']:[])],

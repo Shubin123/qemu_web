@@ -347,6 +347,15 @@ details label { margin-top: 6px; }
   border-radius: 4px;
 }
 .btn-fixture:hover:enabled { background: #3b301e; border-color: #f3d18a; }
+.btn-fixture-secondary {
+  border-color: #54442b;
+  background: #1e1910;
+  color: #c9d4ea;
+}
+.btn-fixture-secondary:hover:enabled {
+  background: #2b2214;
+  border-color: #89b4fa;
+}
 
 .log-box {
   background: #0a0a16;
