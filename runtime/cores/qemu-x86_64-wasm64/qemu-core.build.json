@@ -4,24 +4,24 @@
   "wasm": "wasm64",
   "machine": "i440fx",
   "wasmHeapMiB": 512,
-  "coreId": "sha256:ff9e35ded3d93cdd9b11812c689fdf0594282fc71f7ab344b60b78272c58d750",
+  "coreId": "sha256:e8f1e87ca0461c9c5f28ebf6b348c5b993aef2d5bc6e1714281510328ae6c5e0",
   "upstreamCommit": "478b4f496102379c7eaa7f3ec10e714a703c4300",
-  "vendorHead": "93d3221a4d78a18640205627da439dc124c2a312",
-  "vendorTree": "c9fa01289c7e179c61ac5e5f7d4f05bc23e671a4",
-  "vendorDirty": false,
+  "vendorHead": "227405c28c4ea0fa0840396c278b67f0ac927232",
+  "vendorTree": "3d150cbd6497b02b41e9668fb530a84b9ac249cc",
+  "vendorDirty": true,
   "profile": "release",
   "emscripten": "6.0.9",
-  "builtAt": "2026-10-17T18:47:33.384Z",
+  "builtAt": "2026-10-19T13:07:29.376Z",
   "files": [
     {
       "path": "qemu-core.js",
       "size": 170102,
-      "sha256": "3b6ff355975bf7651be4ae2e085fa237bf2ee8e901953cde219ed5f1d4fa737e"
+      "sha256": "10bca763dad1a0531b4677e6055a223ac79fbd50b39f027eb04daf9f78880561"
     },
     {
       "path": "qemu-core.wasm",
-      "size": 9419321,
-      "sha256": "ff9e35ded3d93cdd9b11812c689fdf0594282fc71f7ab344b60b78272c58d750"
+      "size": 9420021,
+      "sha256": "e8f1e87ca0461c9c5f28ebf6b348c5b993aef2d5bc6e1714281510328ae6c5e0"
     }
   ]
 }

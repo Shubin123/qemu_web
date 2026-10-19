@@ -4,24 +4,24 @@
   "coreId": "sha256:381fc7f9f84e384d4b9afdc18b095e0d8d39196ef0a66373f4bc0f9b53f21e41",
   "cores": {
     "i386": "sha256:381fc7f9f84e384d4b9afdc18b095e0d8d39196ef0a66373f4bc0f9b53f21e41",
-    "x86_64": "sha256:ff9e35ded3d93cdd9b11812c689fdf0594282fc71f7ab344b60b78272c58d750"
+    "x86_64": "sha256:e8f1e87ca0461c9c5f28ebf6b348c5b993aef2d5bc6e1714281510328ae6c5e0"
   },
   "source": "https://github.com/Shubin123/qemu_web/releases/download/engine-c5e0265/qemu-emscripten-c5e0265-source.tar.gz",
   "files": [
     {
       "path": "cores/qemu-x86_64-wasm64/qemu-core.build.json",
-      "size": 821,
-      "sha256": "ab53b18722877c9f138729ded4a262b5c3a2f4bfa9ca6fa7277de53f93ec0e61"
+      "size": 820,
+      "sha256": "db1ed0c0970586f644541493391e9cc96e914fe75cba2d76bd93fb773e68127a"
     },
     {
       "path": "cores/qemu-x86_64-wasm64/qemu-core.js",
       "size": 170102,
-      "sha256": "3b6ff355975bf7651be4ae2e085fa237bf2ee8e901953cde219ed5f1d4fa737e"
+      "sha256": "10bca763dad1a0531b4677e6055a223ac79fbd50b39f027eb04daf9f78880561"
     },
     {
       "path": "cores/qemu-x86_64-wasm64/qemu-core.wasm",
-      "size": 9419321,
-      "sha256": "ff9e35ded3d93cdd9b11812c689fdf0594282fc71f7ab344b60b78272c58d750"
+      "size": 9420021,
+      "sha256": "e8f1e87ca0461c9c5f28ebf6b348c5b993aef2d5bc6e1714281510328ae6c5e0"
     },
     {
       "path": "cores/qemu/qemu-core.build.json",
