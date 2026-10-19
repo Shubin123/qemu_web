@@ -6,12 +6,12 @@
   "wasmHeapMiB": 512,
   "coreId": "sha256:e8f1e87ca0461c9c5f28ebf6b348c5b993aef2d5bc6e1714281510328ae6c5e0",
   "upstreamCommit": "478b4f496102379c7eaa7f3ec10e714a703c4300",
-  "vendorHead": "227405c28c4ea0fa0840396c278b67f0ac927232",
-  "vendorTree": "3d150cbd6497b02b41e9668fb530a84b9ac249cc",
-  "vendorDirty": true,
+  "vendorHead": "4d5ff11d1fc9e077fcb91210c6873293fcf35265",
+  "vendorTree": "34aee80b2de15e1b3ae9f2e4efa389494d3257b0",
+  "vendorDirty": false,
   "profile": "release",
   "emscripten": "6.0.9",
-  "builtAt": "2026-10-19T13:07:29.376Z",
+  "builtAt": "2026-10-19T13:27:21.325Z",
   "files": [
     {
       "path": "qemu-core.js",
