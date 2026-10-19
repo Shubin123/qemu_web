@@ -313,7 +313,7 @@ el('boot').addEventListener('submit',async e=>{
         bios:'./firmware/bios-256k.bin',
         vgabios:'./firmware/vgabios-stdvga.bin',
         linuxboot:'./firmware/linuxboot_dma.bin',
-        coreUrl:'./cores/qemu-x86_64-wasm64/qemu-core.js',
+        coreUrl:new URL('./cores/qemu-x86_64-wasm64/qemu-core.js',location.href),
         memory:Number(el('memory')?.value||3072),
         onProgress:({phase,asset,received})=>{
           if(phase==='loading')status(`Loading ${asset||''}… ${received?(Math.floor(received/1048576)+' MB'):''}`);

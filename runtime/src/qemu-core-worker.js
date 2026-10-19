@@ -13,6 +13,8 @@ import {cacheBlobReads} from './qemu-blob-cache.js';
 import {resolveCdnSource} from './qemu-cdn.js';
 
 let Module = null;
+// Set once main() has been entered; commands before that are refused.
+let booted = false;
 let FS = null;
 // wasm64 cores exchange pointers with JavaScript as BigInt.
 let toPtr = p => p;
@@ -221,6 +223,7 @@ async function boot(msg) {
   if (!fences && Module._tci_wasm_jit_set_fences) Module._tci_wasm_jit_set_fences(0);
   send({type: 'diag', stage: 'memory order', fences});
   let rc;
+  booted = true;
   try {
     rc = Module.callMain(args);
   } catch (err) {
@@ -250,8 +253,13 @@ self.addEventListener('message', e => {
   if (e.data?.type === 'diag') send({type: 'diag', stage: 'probe', ...poolState()});
 });
 
+// Input can arrive while the core is still loading (or after it failed to
+// load); answer the request instead of reporting a core error.
 function command(msg) {
-  if (!Module) throw new Error('Core is not booted');
+  if (!Module?._qemu_web_command || !booted) {
+    send({type: 'command-result', id: msg.id, ok: false, error: 'Core is not running'});
+    return;
+  }
   const arg = Module.stringToNewUTF8(msg.arg ?? '');
   try {
     const rc = Module._qemu_web_command(msg.id, msg.cmd, toPtr(arg));

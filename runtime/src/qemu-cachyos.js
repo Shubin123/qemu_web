@@ -73,7 +73,8 @@ export async function bootCachyos({canvas, disc, bios, vgabios, linuxboot,
     if (!kernelPath || !initrdPath || !append || !append.includes('archisobasedir=arch')) throw new Error('Unrecognized CachyOS live boot configuration');
     const [kernel, initrd] = await Promise.all([readIsoFile(image, kernelPath), readIsoFile(image, initrdPath)]);
     signal?.throwIfAborted();
-    host = new QemuHost({canvas, coreUrl: new URL(coreUrl, import.meta.url)});
+    // Relative URLs resolve against the page, like the asset URLs above.
+    host = new QemuHost({canvas, coreUrl: new URL(coreUrl, globalThis.location?.href ?? import.meta.url)});
     let resolveDesktop, rejectDesktop, desktopFinished = false;
     host.desktopReady = new Promise((resolve, reject) => { resolveDesktop = resolve; rejectDesktop = reject; });
     // A caller may use only onProgress; keep a later termination from producing

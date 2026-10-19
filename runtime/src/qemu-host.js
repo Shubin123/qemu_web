@@ -78,9 +78,10 @@ export class QemuHost extends EventTarget {
   _onWorkerMessage(data) {
     if (!data) return;
     const msg = data.qemu || data;
+    // A failed request (command or mount) rejects only its own promise.
     if (msg.type === 'error' && msg.id) {
       const pending = this.pending.get(msg.id);
-      if (pending) { this.pending.delete(msg.id); pending.reject(new Error(msg.message)); }
+      if (pending) { this.pending.delete(msg.id); pending.reject(new Error(msg.message)); return; }
     }
     if (msg.type === 'host-port') {
       this.ports.push(msg.port);
@@ -177,6 +178,7 @@ export class QemuHost extends EventTarget {
 
   command(cmd, arg = '') {
     if (!this.worker) return Promise.reject(new Error('Core is not booted'));
+    if (!this._started) return Promise.reject(new Error('Core is still starting'));
     const id = this.nextId++;
     return new Promise((resolve, reject) => {
       this.pending.set(id, {resolve, reject});
