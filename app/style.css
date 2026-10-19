@@ -178,6 +178,43 @@ canvas:focus {
   margin-top: 8px;
   line-height: 1.4;
 }
+#boot-progress {
+  margin-top: 10px;
+  max-width: 720px;
+  font-size: 0.82rem;
+  color: #aab7c8;
+}
+.bp-head { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 4px; }
+.bp-stage { color: #e0e0e0; }
+.bp-time { font-variant-numeric: tabular-nums; }
+.bp-bar {
+  height: 8px;
+  border-radius: 4px;
+  background: #16213e;
+  border: 1px solid #2a3a5e;
+  overflow: hidden;
+}
+.bp-fill {
+  height: 100%;
+  width: 0;
+  background: repeating-linear-gradient(-45deg, #89b4fa 0 10px, #6c8fd6 10px 20px);
+  background-size: 28px 28px;
+  animation: bp-stripes 1s linear infinite;
+  transition: width 0.6s ease;
+}
+#boot-progress.done .bp-fill { background: #a6e3a1; animation: none; }
+#boot-progress.failed .bp-fill { background: #f38ba8; animation: none; }
+.bp-detail {
+  margin-top: 4px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.75rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+@keyframes bp-stripes { to { background-position: 28px 0; } }
+@media (prefers-reduced-motion: reduce) { .bp-fill { animation: none; } }
+
 #selection-note, #compatibility-note {
   color: #f9e2af;
   font-size: 0.82rem;

@@ -1,11 +1,13 @@
 import {architectures,systems,machineProblem,selectedBootOptions,defaultBioses,defaultVgaBios} from './machines.js';
 import {QemuHost} from './src/qemu-host.js';
 import {bootCachyos} from './src/qemu-cachyos.js';
+import {createBootProgress} from './boot-progress.js';
 import {isCached,getCachedBlob,putCachedBlob,deleteCached,fetchWithCache,getCacheSummary} from './downloads.js';
 import {buildFlash} from './firmware.js';
 
 const el=id=>document.getElementById(id), canvas=el('screen');
 let host=null, paused=false, state='idle', bootOptions=null;
+const bootProgress=createBootProgress(el('boot-progress'));
 const keys=new Map();
 
 for(const item of architectures)el('architecture').add(new Option(item.name+(item.available?'':' — engine unavailable'),item.id));
@@ -273,6 +275,7 @@ canvas.addEventListener('wheel',e=>{
 },{passive:false});
 
 window.bootPc=async options=>{
+  bootProgress.hide();
   const problem=machineProblem(options.architecture??'i386');
   if(problem)throw new Error(problem);
   if(!crossOriginIsolated||typeof SharedArrayBuffer==='undefined')throw new Error('PC startup requires cross-origin isolation. Reload the page once setup finishes.');
@@ -307,6 +310,7 @@ el('boot').addEventListener('submit',async e=>{
       status('Preparing CachyOS live desktop…');
       host?.terminate();keys.clear();paused=false;
       const started=performance.now();
+      bootProgress.start();
       const instance=await bootCachyos({
         canvas,
         disc,
@@ -317,28 +321,30 @@ el('boot').addEventListener('submit',async e=>{
         memory:Number(el('memory')?.value||3072),
         onProgress:({phase,asset,received})=>{
           if(phase==='loading')status(`Loading ${asset||''}… ${received?(Math.floor(received/1048576)+' MB'):''}`);
-          else if(phase==='preparing')status('Extracting CachyOS live kernel and initramfs…');
-          else if(phase==='booting')status('Starting CachyOS live kernel…');
+          else if(phase==='preparing'){status('Extracting CachyOS live kernel and initramfs…');bootProgress.start('Extracting the kernel and initramfs');}
+          else if(phase==='booting'){status('Starting CachyOS live kernel…');bootProgress.step('Starting the Linux kernel',5);}
           else if(phase==='desktop-ready')status(`CachyOS live desktop ready (${((performance.now()-started)/1000).toFixed(1)}s).`);
         },
         onHost:session=>{
           host=session;window.pcHost=session;
           const current=()=>host===session;
-          const finish=message=>{if(!current())return;host=null;window.pcHost=null;session.terminate();keys.clear();paused=false;controls('idle');status(message);};
-          session.addEventListener('log',e=>{if(current())log(e.detail.lines);});
+          const finish=message=>{if(!current())return;host=null;window.pcHost=null;session.terminate();keys.clear();paused=false;controls('idle');status(message);bootProgress.finish(false,message);};
+          session.addEventListener('log',e=>{if(current()){log(e.detail.lines);bootProgress.update(e.detail.lines);}});
           for(const type of ['error','abort'])session.addEventListener(type,e=>finish(e.detail.message));
           session.addEventListener('exited',()=>finish('PC stopped.'));
         }
       });
       host=instance;window.pcHost=instance;
       controls('running');
-      status(`CachyOS booting… Waiting for live desktop (${((performance.now()-started)/1000).toFixed(1)}s).`);
+      status('CachyOS is booting. In the browser this can take 20–40 minutes; the screen may stay unchanged for long stretches.');
       canvas.focus();
       try{
         await instance.desktopReady;
         status(`CachyOS live desktop ready (${((performance.now()-started)/1000).toFixed(1)}s). Click display to interact.`);
+        bootProgress.finish(true,'Desktop ready');
       }catch(err){
         if(state!=='idle')status(err.message||'CachyOS desktop startup failed.');
+        bootProgress.finish(false,err.message||'Desktop startup failed');
       }
       return;
     }
@@ -383,7 +389,7 @@ el('boot').addEventListener('submit',async e=>{
 el('pause').onclick=async()=>{try{await releaseKeys();await host.pause();paused=true;controls('paused');status('PC paused.');}catch(e){status(e.message);}};
 el('resume').onclick=async()=>{try{await host.resume();paused=false;controls('running');status('PC running.');canvas.focus();}catch(e){status(e.message);}};
 el('reset').onclick=async()=>{try{if(el('os').value==='cachyos')el('start').click();else await window.bootPc(bootOptions);}catch(e){if(state==='idle')status(e.message);}};
-el('stop').onclick=()=>{host?.terminate();host=null;window.pcHost=null;keys.clear();paused=false;controls('idle');status('PC stopped.');};
+el('stop').onclick=()=>{bootProgress.hide();host?.terminate();host=null;window.pcHost=null;keys.clear();paused=false;controls('idle');status('PC stopped.');};
 
 async function isolation(){if(crossOriginIsolated)return;if(!('serviceWorker' in navigator)){status('This browser needs cross-origin isolation support.');return;}await navigator.serviceWorker.register('./coi-serviceworker.js');if(!navigator.serviceWorker.controller){navigator.serviceWorker.addEventListener('controllerchange',()=>location.reload(),{once:true});}else if(!sessionStorage.getItem('qemu-isolation-reload')){sessionStorage.setItem('qemu-isolation-reload','1');location.reload();}}
 isolation().catch(e=>status(e.message));

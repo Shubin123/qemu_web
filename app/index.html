@@ -72,6 +72,11 @@
       </div>
       <p id="selection-note" role="status" hidden></p>
       <p id="status" role="status">Ready. Choose a local PC BIOS to begin.</p>
+      <div id="boot-progress" hidden>
+        <div class="bp-head"><span class="bp-stage"></span><span class="bp-time"></span></div>
+        <div class="bp-bar" role="progressbar" aria-label="Boot progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div class="bp-fill"></div></div>
+        <p class="bp-detail"></p>
+      </div>
     </div>
 
     <div class="controls-panel" id="widget-grid">
