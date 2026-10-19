@@ -168,7 +168,12 @@ async function boot(msg) {
   const factory = (await import(msg.coreUrl)).default;
   const started = performance.now();
   Module = await factory({
-    locateFile: path => new URL(path, msg.coreUrl).href,
+    locateFile: path => {
+      const url = new URL(path, msg.coreUrl);
+      const build = new URL(msg.coreUrl).searchParams.get('build');
+      if (build) url.searchParams.set('build', build);
+      return url.href;
+    },
     stdout: stdoutByte,
     printErr: text => logLine('err', text),
     onAbort: what => { flushLog(); send({type: 'abort', message: String(what)}); },
@@ -198,6 +203,13 @@ async function boot(msg) {
     await placeFile(files.disc, present.disc);
   }
   const args = [...buildArguments(msg.settings, present), ...(msg.args || [])];
+  if (files.baseDisk) await placeFile(files.baseDisk, '/disk/base.img');
+  if (files.state) {
+    mkdirp('/state');
+    await placeFile(files.state, '/state/session.qcow2');
+    args.push('-drive', `file=/state/session.qcow2,if=${msg.sessionDisk ? 'ide,index=0' : 'none'},id=browser-state-drive,node-name=browser-state,format=qcow2`);
+    if (msg.restoreSession) args.push('-loadvm', 'browser-session');
+  }
   const memory = Module.wasmMemory;
   const ptr = {stats: Number(Module._qemu_web_stats_ptr())};
   if (typeof Module._qemu_web_stats_ptr() === 'bigint') toPtr = BigInt;
@@ -281,6 +293,27 @@ async function mount(msg) {
   send({type: 'mounted', id: msg.id, path});
 }
 
+async function copySession(msg) {
+  if (!FS || !/^[a-zA-Z0-9./-]+$/.test(msg.path) || msg.path.split('/').some(p => !p || p === '..')) throw new Error('Invalid session destination');
+  let dir = await navigator.storage.getDirectory();
+  const parts = msg.path.split('/'), name = parts.pop();
+  for (const part of parts) dir = await dir.getDirectoryHandle(part, {create: true});
+  const out = await (await dir.getFileHandle(name, {create: true})).createWritable();
+  const stream = FS.open('/state/session.qcow2', 'r');
+  try {
+    const size = FS.stat('/state/session.qcow2').size;
+    const chunk = new Uint8Array(1024 * 1024);
+    for (let at = 0; at < size;) {
+      const n = FS.read(stream, chunk, 0, Math.min(chunk.length, size - at), at);
+      if (!n) throw new Error('Short session read');
+      await out.write(chunk.subarray(0, n)); at += n;
+    }
+    await out.close();
+  } catch (e) { try { await out.abort(); } catch {} throw e; }
+  finally { FS.close(stream); }
+  send({type: 'session-copied', id: msg.id});
+}
+
 self.onmessage = async e => {
   const msg = e.data;
   if (!msg || !msg.type) return;
@@ -288,6 +321,7 @@ self.onmessage = async e => {
     if (msg.type === 'boot') await boot(msg);
     else if (msg.type === 'command') command(msg);
     else if (msg.type === 'mount') await mount(msg);
+    else if (msg.type === 'copy-session') await copySession(msg);
   } catch (err) {
     send({type: 'error', message: String(err && err.stack || err), id: msg.id});
   }

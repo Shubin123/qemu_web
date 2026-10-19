@@ -212,16 +212,14 @@ try{
   await page.evaluate(()=>{
     const boot=window.bootPc;
     window.bootPc=options=>{
-      const result=boot({...options,args:['-debugcon','stdio']});
       window.testLines=[];
-      window.pcHost.addEventListener('log',e=>testLines.push(...e.detail.lines.map(l=>l.text)));
-      return result;
+      return boot({...options,args:['-debugcon','stdio'],onHost:session=>session.addEventListener('log',e=>testLines.push(...e.detail.lines.map(l=>l.text)))});
     };
   });
 
   const started=Date.now();
   await page.click('#start');
-  await page.waitForFunction(()=>testLines.some(l=>l.includes('XEMUWEB:DONE')),null,{timeout:60000});
+  await page.waitForFunction(()=>window.testLines?.some(l=>l.includes('XEMUWEB:DONE')),null,{timeout:60000});
   const lines=await page.evaluate(()=>testLines);
   assert.ok(lines.some(l=>l.includes(expectedChecksum(20000000).toString(16).toUpperCase().padStart(8,'0'))));
   console.log(`Start button to generated BIOS checksum: ${Date.now()-started} ms`);
@@ -241,7 +239,7 @@ try{
   await page.waitForFunction(()=>document.querySelector('#status').textContent==='PC running.');
 
   await page.click('#reset');
-  await page.waitForFunction(()=>document.querySelector('#status').textContent.startsWith('PC running.'));
+  await page.waitForFunction(()=>document.querySelector('#status').textContent.startsWith('PC running.')).catch(async e=>{throw Error(`${e.message}\n${await page.locator('#status').textContent()}\n${(await page.locator('#log').textContent()).slice(-1000)}`);});
 
   await page.click('#stop');
   await page.waitForFunction(()=>document.querySelector('#status').textContent==='PC stopped.');

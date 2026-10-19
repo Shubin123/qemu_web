@@ -30,10 +30,13 @@ self.addEventListener('fetch', event => {
         const scope = new URL(self.registration.scope);
         const isUnderScope = request.method === 'GET' && requestUrl.pathname.startsWith(scope.pathname);
 
+        const cacheableCore = isUnderScope && requestUrl.pathname.includes('/cores/') &&
+            !requestUrl.pathname.endsWith('.build.json') &&
+            !['no-store', 'reload'].includes(event.request.cache);
+
         if (isUnderScope) {
             // Check build cache for versioned cores
-            const isCoreAsset = requestUrl.pathname.includes('/cores/');
-            if (isCoreAsset) {
+            if (cacheableCore) {
                 try {
                     const cache = await caches.open(BUILD_CACHE);
                     const matched = await cache.match(event.request);
@@ -62,7 +65,7 @@ self.addEventListener('fetch', event => {
         });
 
         // Cache successful core and wasm downloads for fast offline starts
-        if (response.ok && isUnderScope && requestUrl.pathname.includes('/cores/')) {
+        if (response.ok && cacheableCore) {
             try {
                 const cache = await caches.open(BUILD_CACHE);
                 await cache.put(event.request, finalResponse.clone());

@@ -10,7 +10,7 @@ raw/qcow2 disk, choose Done, then use the pyramid Start PC button.
 Reset menu defaults clears file selections, restores the default choices and
 collapses menu sections. It is available when the PC is stopped. Files
 are never uploaded. Keyboard input is captured while the display has focus.
-Disk changes are discarded on stop. No guest firmware or operating systems
+Unsaved disk changes are discarded on stop; Save current session preserves private changes in browser storage. No guest firmware or operating systems
 are included or downloaded. Audio, networking and x86-64 are not available.
 
 ```sh
@@ -26,23 +26,19 @@ hosting uses the included service worker and reloads once to enable isolation.
 `web/` is generated from `app/` plus the checked, hash-pinned `runtime/`.
 
 GPL-2.0-or-later; see LICENSE. The runtime preserves its QEMU/xemu ancestry.
-[Matching complete engine source](https://github.com/Shubin123/qemu_web/releases/download/engine-fc8c638/qemu-emscripten-fc8c638-source.tar.gz)
-is provided publicly with the binary, including the offline pinned source
-bundle, patches, build scripts and dependency sources. Rebuild instructions
-are in its README. Engine source version: `fc8c638`; Emscripten: `6.0.9`.
+[Matching engine source](https://github.com/Shubin123/qemu_web/releases/download/engine-99be56e/qemu-emscripten-99be56e-source.tar.gz)
+contains the offline pinned source bundle, patches, build scripts and dependency
+sources for `99be56e`. `runtime/runtime.json` records the exact engine commit,
+vendor tree and binary hashes. Emscripten: `6.0.9`.
 
-The guest architecture dropdown lists Intel/AMD 32-bit, Intel/AMD 64-bit and
-ARM 64-bit. Only Intel/AMD 32-bit can start: this bundle has no validated
-64-bit or ARM guest engine. This choice describes the emulated CPU; it does
-not need to match the browser host CPU. The validated runtime and its hashes
-are unchanged.
+The guest CPU does not need to match the browser host CPU.
 
 The OS menu and coverage table include FreeDOS, Alpine, Debian 12, Ubuntu
 24.04, Fedora, Windows 11 and TempleOS. None has passed a full OS acceptance
 test on this bundle. Selecting a name does not download or install that OS.
-The current machine has at most 128 MiB RAM, no VGA option ROM input, and no
-networking or audio. Modern desktop OS compatibility is not established.
-TempleOS cannot be the default until an x86-64 engine and boot test pass.
+The widget offers memory settings up to 3072 MiB, subject to the selected core
+and browser limits, and bundled PC firmware. Networking and audio are not
+available. Modern desktop OS compatibility is not established.
 
 For repeatable browser OS tests, copy `tests/os-plan.example.json` to the
 ignored `tests/os.local.json`, replace the paths and checkpoints for each
@@ -65,3 +61,26 @@ and workflow; they do not verify desktop applications or every OS feature.
 its separate report is not OS compatibility evidence. No OS images or BIOS
 files belong in Git. A future engine import must include matching validated
 runtime modules, hashes and source provenance.
+
+### Browser startup controls
+
+The Boot Media widget offers **Resume saved session if available** and
+**Fresh boot using cached files**. Keep **Keep boot files in this browser**
+enabled to retain the ISO, extracted kernel/initramfs and verified engine binary.
+The first start still boots the guest normally. **Save current session** can
+checkpoint a long boot or running desktop; saves happen only on request. Later starts can reuse cached media
+without selecting the ISO again. **Clear all cached systems and saves** removes
+this local data while the PC is stopped.
+
+Saves are matched to the exact engine, media, firmware, memory and boot profile.
+A mismatch starts fresh. Failed saves preserve the last completed checkpoint.
+Files and saved RAM stay in this browser profile and origin, using OPFS; allow
+space for the ISO and saved/working guest memory. Raw and self-contained qcow2 disks use private overlays, so checkpoints
+include disk writes while the selected source image stays unchanged. Each
+OS/architecture selection has its own checkpoint. Use **Start cached system**
+to start without reselecting files. Clear removes all saved systems. Browser storage eviction may remove
+cached data. Generated-firmware tests cover the save/reload/restore mechanism;
+a full CachyOS desktop resume has not been validated.
+
+The published runtime and matching source archive identify engine commit
+`99be56ee75aa704e68a281ea19c798bf86c6ee23`. Browser checkpoints remain local and are never published.

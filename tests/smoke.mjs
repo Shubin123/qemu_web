@@ -1,3 +1,12 @@
-import assert from 'node:assert/strict';import {readFileSync} from 'node:fs';
-const html=readFileSync('web/index.html','utf8');for(const id of ['bios','disk','screen','start','pause','resume','stop'])assert.ok(html.includes(`id="${id}"`));
-assert.match(html,/releases\/download\/engine-fc8c638\/qemu-emscripten-fc8c638-source.tar.gz/);assert.ok(!readFileSync('web/coi-serviceworker.js','utf8').includes('__QEMU_RELEASE__'));console.log('Public bundle smoke checks passed');
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+const html=readFileSync('web/index.html','utf8');
+for(const id of ['bios','disk','screen','start','pause','resume','stop']) assert.ok(html.includes(`id="${id}"`));
+const runtime=JSON.parse(readFileSync('runtime/runtime.json','utf8'));
+assert.equal(runtime.engineDirty,false,'published runtime must identify committed engine source');
+assert.match(runtime.engineCommit,/^[0-9a-f]{40}$/);
+const short=runtime.engineCommit.slice(0,7);
+assert.equal(runtime.source,`https://github.com/Shubin123/qemu_web/releases/download/engine-${short}/qemu-emscripten-${short}-source.tar.gz`);
+assert.ok(html.includes(runtime.source),'page must link matching engine source');
+assert.ok(!readFileSync('web/coi-serviceworker.js','utf8').includes('__QEMU_RELEASE__'));
+console.log('Public bundle smoke checks passed');

@@ -115,6 +115,21 @@
         </div>
         <p id="bios-info" class="mode-help">Open source SeaBIOS 256K (bundled LGPL firmware, ready to boot).</p>
         <label>Boot ISO (optional) <input id="disc" type="file" accept=".iso" form="boot"></label>
+        <fieldset id="boot-cache-options" hidden>
+          <legend>Browser startup</legend>
+          <label class="cache-toggle" for="boot-cache"><input id="boot-cache" type="checkbox" checked> Keep boot files in this browser</label>
+          <label for="session-mode">Next start
+            <select id="session-mode">
+              <option value="resume">Resume saved session if available</option>
+              <option value="fresh">Fresh boot using cached files</option>
+            </select>
+          </label>
+          <p class="mode-help">Click Save current session when your OS is ready. A saved session skips guest startup. A fresh boot keeps the operating system clean while reusing its boot files. Files and saves stay on this device. Storage is needed for the ISO and saved guest memory.</p>
+          <p id="boot-cache-status" role="status" class="mode-help">No cached boot files yet.</p>
+          <button id="start-cached" type="button" disabled>Start cached system</button>
+          <button id="save-session" type="button" disabled>Save current session</button>
+          <button id="clear-boot-cache" type="button">Clear all cached systems and saves</button>
+        </fieldset>
         <div id="fixture-notice" class="fixture-box" hidden>
           <span id="fixture-info"></span>
           <div style="display:flex;gap:6px;flex-wrap:wrap;">
@@ -159,12 +174,12 @@
 
       <div class="card" data-widget="system">
         <h2>ℹ System Info</h2>
-        <p class="mode-help">Experimental i386/i440fx target. Audio, networking and x86-64 are not available. Disks opened here are read-only inputs; changes are discarded on stop.</p>
+        <p class="mode-help">The default target is i386/i440fx; CachyOS uses a separate experimental core. Audio and networking are unavailable. Selected disk images remain unchanged. Save current session keeps private disk writes in this browser; unsaved changes are discarded on stop.</p>
         <p id="storage-summary" class="mode-help" style="margin-top:8px;"></p>
         <button id="btn-clear-cache" type="button" class="btn btn-secondary" style="width:auto;padding:3px 8px;font-size:0.72rem;margin-top:4px;" hidden>Clear cached downloads</button>
         <p class="mode-help" style="margin-top:8px;">
           <a href="https://github.com/Shubin123/qemu_web" target="_blank" rel="noopener">Website source</a> ·
-          <a href="https://github.com/Shubin123/qemu_web/releases/download/engine-fc8c638/qemu-emscripten-fc8c638-source.tar.gz">Matching engine source (GPL)</a>
+          <a href="https://github.com/Shubin123/qemu_web/releases/download/engine-99be56e/qemu-emscripten-99be56e-source.tar.gz">Matching engine source (GPL)</a>
         </p>
       </div>
     </div>

@@ -481,3 +481,8 @@ a:hover { text-decoration: underline; color: #b4befe; }
 .layout-widget-actions select {
   background: #0a0a1a; color: #e0e0e0; border: 1px solid #0f3460; border-radius: 4px; font-size: .72rem; padding: 2px 4px;
 }
+
+#boot-cache-options { display: grid; gap: 8px; margin: 12px 0; padding: 10px; border: 1px solid #0f3460; border-radius: 4px; min-width: 0; }
+#boot-cache-options legend { color: #c9d4ea; font-size: 0.82rem; padding: 0 4px; }
+#boot-cache-options .cache-toggle { display: flex; align-items: center; gap: 8px; }
+#boot-cache-options p { margin: 0; overflow-wrap: anywhere; }

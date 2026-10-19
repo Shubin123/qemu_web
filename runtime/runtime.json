@@ -1,47 +1,27 @@
 {
   "schemaVersion": 1,
-  "engineCommit": "fc8c638",
-  "coreId": "sha256:50e6a722bc1a1c838eae0642236e2e44d6d091e3fb53a9544cd3a6d7a29c7e52",
+  "engineCommit": "99be56ee75aa704e68a281ea19c798bf86c6ee23",
+  "coreId": "sha256:022b508fff7e30e2333036934141318165fb84b6360e1c60d5529cb2645998ee",
   "cores": {
-    "i386": "sha256:50e6a722bc1a1c838eae0642236e2e44d6d091e3fb53a9544cd3a6d7a29c7e52",
-    "x86_64": "sha256:e8f1e87ca0461c9c5f28ebf6b348c5b993aef2d5bc6e1714281510328ae6c5e0"
+    "i386": "sha256:022b508fff7e30e2333036934141318165fb84b6360e1c60d5529cb2645998ee",
+    "x86_64": "sha256:ef50bd8bfd8c4b9023a791c6e1eac5046f47929ee459d94b2cbdeaee10fe81c4"
   },
-  "source": "https://github.com/Shubin123/qemu_web/releases/download/engine-fc8c638/qemu-emscripten-fc8c638-source.tar.gz",
+  "source": "https://github.com/Shubin123/qemu_web/releases/download/engine-99be56e/qemu-emscripten-99be56e-source.tar.gz",
   "files": [
-    {
-      "path": "cores/qemu-x86_64-wasm64/qemu-core.build.json",
-      "size": 821,
-      "sha256": "7c8969c677b9e05f3b8bab16d555b1a461b246fcc51f74369147359b94d3fd47"
-    },
-    {
-      "path": "cores/qemu-x86_64-wasm64/qemu-core.js",
-      "size": 170102,
-      "sha256": "10bca763dad1a0531b4677e6055a223ac79fbd50b39f027eb04daf9f78880561"
-    },
-    {
-      "path": "cores/qemu-x86_64-wasm64/qemu-core.wasm",
-      "size": 9420021,
-      "sha256": "e8f1e87ca0461c9c5f28ebf6b348c5b993aef2d5bc6e1714281510328ae6c5e0"
-    },
-    {
-      "path": "cores/qemu/qemu-core.build.json",
-      "size": 819,
-      "sha256": "ee85ca1abfff55e625a7d4de41cab408ac1661aa000338feee33745e88cf8a66"
-    },
-    {
-      "path": "cores/qemu/qemu-core.js",
-      "size": 146098,
-      "sha256": "e7799f3eee94458a1b98df66f43296cca36f0957cd34400a79a9db8f0584ec40"
-    },
-    {
-      "path": "cores/qemu/qemu-core.wasm",
-      "size": 8393536,
-      "sha256": "50e6a722bc1a1c838eae0642236e2e44d6d091e3fb53a9544cd3a6d7a29c7e52"
-    },
     {
       "path": "src/qemu-blob-cache.js",
       "size": 2039,
       "sha256": "9aad4aa7f049cbf2e02fae07045f8e67f2245279089a36af3f18d5cc2b062780"
+    },
+    {
+      "path": "src/qemu-boot-cache.js",
+      "size": 20492,
+      "sha256": "a553a7bb5c18648cbef53494423b9414ce8f416ca3183323afd97db8e321a3ae"
+    },
+    {
+      "path": "src/qemu-cachyos.js",
+      "size": 9488,
+      "sha256": "689175d6146f39606ef61290417c56187e044efbfa2066e7cbf921b5238d8811"
     },
     {
       "path": "src/qemu-cdn.js",
@@ -55,18 +35,13 @@
     },
     {
       "path": "src/qemu-core-worker.js",
-      "size": 12175,
-      "sha256": "c8a5f54f960751a35f4625a18550d1d5bf81ec2e32dae93c3a6021c05cf38fcb"
+      "size": 13843,
+      "sha256": "61b95b26e0f61b9f857eb513dc00e179d1897aa5bd5676d2cd9a8a85fca51de7"
     },
     {
       "path": "src/qemu-host.js",
-      "size": 9796,
-      "sha256": "00644770ff27824a7802a5ea6bce0efc4218bf9f4be3fc51f014f0ebd286ee9c"
-    },
-    {
-      "path": "src/qemu-cachyos.js",
-      "size": 7967,
-      "sha256": "7bd62d4e28fcce3db34c9c035b5ec823363910147792dc0471e74e658668bd63"
+      "size": 12132,
+      "sha256": "0bf6f0f9c2e8485c80ff5b44d484501e4f19256c2edea878ba1391d9827fa17a"
     },
     {
       "path": "src/qemu-iso.js",
@@ -77,6 +52,44 @@
       "path": "src/qemu-opfs-fs.js",
       "size": 4548,
       "sha256": "dca2b692130a57ea3c4be0781380a16f366dfd4cad72ebec2830e90dea0035ec"
+    },
+    {
+      "path": "src/qemu-qcow2.js",
+      "size": 2604,
+      "sha256": "fdd79383d90e6c5eab0acbb05b91b8ab7b04254d442a37933de1a3bccdac8a83"
+    },
+    {
+      "path": "cores/qemu/qemu-core.build.json",
+      "size": 819,
+      "sha256": "6880ee2632814ca3e2ae88bf57d7c61aa41543b7b8127983c2e30967859fcf8d"
+    },
+    {
+      "path": "cores/qemu/qemu-core.js",
+      "size": 146098,
+      "sha256": "38978fc3f86aee4cdd781944a12f0e4b0049932de027bde09b58f40f9ae63b6b"
+    },
+    {
+      "path": "cores/qemu/qemu-core.wasm",
+      "size": 8393958,
+      "sha256": "022b508fff7e30e2333036934141318165fb84b6360e1c60d5529cb2645998ee"
+    },
+    {
+      "path": "cores/qemu-x86_64-wasm64/qemu-core.build.json",
+      "size": 821,
+      "sha256": "b6e93fc2ffd030d60f26971628e70edfbe42bca145d8e15e12aa37a26198bd5e"
+    },
+    {
+      "path": "cores/qemu-x86_64-wasm64/qemu-core.js",
+      "size": 170102,
+      "sha256": "3e257a55b1a01dc02967386e0d4653a7df73bd8db666d5ea1081a8962137b184"
+    },
+    {
+      "path": "cores/qemu-x86_64-wasm64/qemu-core.wasm",
+      "size": 9420475,
+      "sha256": "ef50bd8bfd8c4b9023a791c6e1eac5046f47929ee459d94b2cbdeaee10fe81c4"
     }
-  ]
+  ],
+  "engineDirty": false,
+  "vendorHead": "334f654c579a8f4b429eb6d9045ef572d1019063",
+  "vendorTree": "c458ec15049fe6ae63d8eb6327e6c7c073484692"
 }

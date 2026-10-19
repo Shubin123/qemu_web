@@ -45,9 +45,7 @@ try{
       await page.evaluate(()=>{
         const boot=window.bootPc;window.osConsole='';
         window.bootPc=options=>{
-          const pending=boot(options);
-          window.pcHost.addEventListener('log',event=>{window.osConsole=(window.osConsole+event.detail.lines.map(line=>line.text).join('\n')+'\n').slice(-1000000);});
-          return pending;
+          return boot({...options,onHost:session=>session.addEventListener('log',event=>{window.osConsole=(window.osConsole+event.detail.lines.map(line=>line.text).join('\n')+'\n').slice(-1000000);})});
         };
       });
       if(await page.locator('#menu-done').isVisible())await page.click('#menu-done');

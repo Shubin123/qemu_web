@@ -8,4 +8,4 @@ const isWasm64=wasm64.length>=8&&wasm64[0]===0&&wasm64[1]===0x61&&wasm64[2]===0x
 const hash64=createHash('sha256').update(wasm64).digest('hex');
 if(!isWasm64||hash64!==(manifest.cores?.x86_64?.replace(/^sha256:/,'')||'ff9e35ded3d93cdd9b11812c689fdf0594282fc71f7ab344b60b78272c58d750'))throw Error('Invalid x86_64 core');
 rmSync('web',{recursive:true,force:true});mkdirSync('web');cpSync('app','web',{recursive:true});cpSync('runtime/src','web/src',{recursive:true});cpSync('runtime/cores','web/cores',{recursive:true});cpSync('LICENSE','web/LICENSE');cpSync('runtime/runtime.json','web/runtime.json');
-const sw='web/coi-serviceworker.js';writeFileSync(sw,readFileSync(sw,'utf8').replace('__QEMU_RELEASE__',manifest.coreId.slice(7,23)));writeFileSync('web/.nojekyll','');console.log(`Built ${manifest.coreId} (includes i386 and x86_64 cores)`);
+const sw='web/coi-serviceworker.js';writeFileSync(sw,readFileSync(sw,'utf8').replace('__QEMU_RELEASE__',createHash('sha256').update(JSON.stringify(manifest)).digest('hex').slice(0,16)));writeFileSync('web/.nojekyll','');console.log(`Built ${manifest.coreId} (includes i386 and x86_64 cores)`);

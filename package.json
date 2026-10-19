@@ -7,7 +7,7 @@
   "scripts": {
     "build": "node tools/build.mjs",
     "test": "node tests/smoke.mjs && node --test tests/machines.test.mjs",
-    "test:browser": "node tests/browser.mjs && node tests/os-harness.mjs",
+    "test:browser": "node tests/browser.mjs && node tests/os-harness.mjs && node tests/startup-widget.mjs && node tests/serviceworker-cache.mjs",
     "start": "node tools/serve.mjs",
     "test:os": "node tests/os-browser.mjs"
   },

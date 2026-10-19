@@ -1,6 +1,6 @@
 // Page API for the i386 PC browser engine. GPL-2.0-or-later.
 import {buildArguments, CORE_PATHS} from './qemu-config.js';
-export const Commands = Object.freeze({PAUSE:1, RESUME:2, RESET:3, POWER_OFF:4, KEY:5, POINTER:6});
+export const Commands = Object.freeze({PAUSE:1, RESUME:2, RESET:3, POWER_OFF:4, KEY:5, POINTER:6, SAVE_SESSION:7});
 const STATS = {presented: 0, consumed: 1, maxInflight: 2, vblanks: 3, width: 4, height: 5, paused: 6, running: 7, guestFlips: 8};
 
 export class QemuHost extends EventTarget {
@@ -31,13 +31,18 @@ export class QemuHost extends EventTarget {
    * drops the fences on hosts that report x86 (see hostIsX86).
    */
   boot({files = {}, settings = {}, args = [], wasmBinary, echoLog = false, jit = true,
-        memoryOrder = 'strict', x87 = 'fast', x87Cache = false, x87Profile = false} = {}) {
+        memoryOrder = 'strict', x87 = 'fast', x87Cache = false, x87Profile = false, restoreSession = false, sessionDisk = false, startupTimeoutMs = 300000} = {}) {
     if (!['fast', 'reference'].includes(x87)) throw new Error('Invalid x87 mode');
     if (this.worker) throw new Error('Already booted');
+    if (!Number.isFinite(startupTimeoutMs) || startupTimeoutMs <= 0) throw new Error('Invalid startup timeout');
     buildArguments(settings, {...files, disc: files.disc ? '/media/disc.iso' : '',
                               kernel: files.kernel ? CORE_PATHS.kernel : '',
                               initrd: files.initrd ? CORE_PATHS.initrd : ''});
     if (!['strict', 'relaxed', 'auto'].includes(memoryOrder)) throw new Error('Invalid memory order');
+    if (files.state && (!files.state.opfs || !files.state.writable || files.hdd)) throw new Error('Browser sessions require a writable OPFS state file and read-only guest media');
+    if ((sessionDisk || files.baseDisk) && (!files.state || !files.baseDisk || !sessionDisk)) throw new Error('A cached disk requires its state overlay and immutable base disk');
+    if (restoreSession && !files.state) throw new Error('Missing browser session file');
+    this._sessionDisk = !!files.state;
     this._started = false;
     this._readyMessage = null;
     this.worker = new Worker(this.workerUrl, {type: 'module', name: 'qemu-core'});
@@ -55,11 +60,19 @@ export class QemuHost extends EventTarget {
       this._readyResolve = resolve;
       this._readyReject = reject;
     });
-    this.worker.postMessage({type: 'boot', coreUrl: this.coreUrl, files, settings, args, wasmBinary, echoLog, jit, memoryOrder, x87, x87Cache, x87Profile}, transfer);
+    const startupTimer = this._startupTimer = setTimeout(() => {
+      const message = 'Core startup timed out. Choose a fresh boot if a saved session cannot be restored.';
+      this._readyReject?.(new Error(message));
+      this._emit('error', {message});
+      this.terminate();
+    }, startupTimeoutMs);
+    this._ready.then(() => clearTimeout(startupTimer), () => clearTimeout(startupTimer));
+    this.worker.postMessage({type: 'boot', coreUrl: this.coreUrl, files, settings, args, wasmBinary, echoLog, jit, memoryOrder, x87, x87Cache, x87Profile, restoreSession, sessionDisk}, transfer);
     return this._ready;
   }
 
   terminate() {
+    clearTimeout(this._startupTimer);
     const error = new Error('Core terminated');
     this._readyReject?.(error);
     for (const pending of this.pending.values()) pending.reject(error);
@@ -123,6 +136,7 @@ export class QemuHost extends EventTarget {
         }
         break;
       }
+      case 'session-copied':
       case 'mounted': {
         const p = this.pending.get(msg.id);
         if (p) { this.pending.delete(msg.id); p.resolve(msg.path); }
@@ -186,9 +200,29 @@ export class QemuHost extends EventTarget {
     });
   }
 
-  pause() { return this.command(Commands.PAUSE); }
-  resume() { return this.command(Commands.RESUME); }
-  reset() { return this.command(Commands.RESET); }
+  pause() { return this._savingSession ? Promise.reject(new Error('Wait for the session save to finish')) : this.command(Commands.PAUSE); }
+  resume() { return this._savingSession ? Promise.reject(new Error('Wait for the session save to finish')) : this.command(Commands.RESUME); }
+  async saveSession({copyTo} = {}) {
+    if (!this._sessionDisk) throw new Error('Browser session storage was not configured');
+    if (this._savingSession) throw new Error('A session save is already in progress');
+    this._savingSession = true;
+    try {
+      const wasPaused = this.stats && Atomics.load(this.stats, STATS.paused) === 1;
+      if (copyTo && !wasPaused) await this.command(Commands.PAUSE);
+      try {
+        await this.command(Commands.SAVE_SESSION);
+        if (copyTo) {
+          const id = this.nextId++;
+          await new Promise((resolve, reject) => {
+            this.pending.set(id, {resolve, reject});
+            this.worker.postMessage({type: 'copy-session', id, path: copyTo});
+          });
+        }
+      } finally { if (copyTo && !wasPaused && this.worker) await this.command(Commands.RESUME); }
+    } finally { this._savingSession = false; }
+  }
+
+  reset() { return this._savingSession ? Promise.reject(new Error('Wait for the session save to finish')) : this.command(Commands.RESET); }
   powerOff() { return this.command(Commands.POWER_OFF); }
   key(qcode, down) {
     if (typeof qcode !== 'string' || !/^[a-z0-9_-]+$/.test(qcode)) return Promise.reject(new Error('Invalid key code'));

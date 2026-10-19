@@ -1,14 +1,65 @@
 import {architectures,systems,machineProblem,selectedBootOptions,defaultBioses,defaultVgaBios} from './machines.js';
 import {QemuHost} from './src/qemu-host.js';
 import {bootCachyos} from './src/qemu-cachyos.js';
+import {getBootCacheInfo,clearBootCache,prepareCachedMachine} from './src/qemu-boot-cache.js';
 import {createBootProgress} from './boot-progress.js';
 import {isCached,getCachedBlob,putCachedBlob,deleteCached,fetchWithCache,getCacheSummary} from './downloads.js';
 import {buildFlash} from './firmware.js';
 
 const el=id=>document.getElementById(id), canvas=el('screen');
-let host=null, paused=false, state='idle', bootOptions=null;
+let host=null, paused=false, state='idle', bootOptions=null, bootGeneration=0, bootAbort=null, cacheCleanup=Promise.resolve();
 const bootProgress=createBootProgress(el('boot-progress'));
 const keys=new Map();
+let bootCacheInfo={cached:false,saved:false}, savingSession=false, biosChoiceChanged=false, infoSlot=null;
+const cacheSlot=()=>el('os').value==='cachyos'?'cachyos':`pc:${el('architecture').value}:${el('os').value}`;
+try {
+  const prefs=JSON.parse(localStorage.getItem('qemu-browser-startup')||'null');
+  if(prefs){el('boot-cache').checked=prefs.cache!==false;el('session-mode').value=prefs.mode==='fresh'?'fresh':'resume';}
+} catch {}
+async function refreshBootCache({restoreSettings=false}={}){
+  const slot=cacheSlot();
+  if(infoSlot!==slot){bootCacheInfo={cached:false,saved:false};infoSlot=slot;cacheControls();}
+  const info=await getBootCacheInfo(slot);
+  if(slot!==cacheSlot())return;
+  bootCacheInfo=info;
+  if(restoreSettings&&info.settings){if(info.settings.memory)el('memory').value=String(info.settings.memory);if(info.settings.diskFormat)el('format').value=info.settings.diskFormat;if(typeof info.serial==='boolean')el('serial').checked=info.serial;}
+  el('boot-cache-status').textContent=bootCacheInfo.cached
+    ?`Cached boot files: ${bootCacheInfo.name}. ${bootCacheInfo.saved?'Saved session available ('+new Date(bootCacheInfo.savedAt).toLocaleString()+').':'No compatible session has been saved yet.'}`
+    :'No cached boot files yet. Choose boot files for the first start.';
+  cacheControls();
+}
+function cacheControls(){
+  const enabled=el('boot-cache').checked;
+  if(!enabled)el('session-mode').value='fresh';
+  el('session-mode').disabled=state!=='idle'||!enabled;
+  el('boot-cache').disabled=state!=='idle';
+  el('clear-boot-cache').disabled=state!=='idle';
+  el('pause').disabled=savingSession||state!=='running';
+  el('resume').disabled=savingSession||state!=='paused';
+  el('reset').disabled=savingSession||!['running','paused'].includes(state);
+  el('start-cached').disabled=state!=='idle'||!enabled||!bootCacheInfo.cached;
+  el('save-session').disabled=savingSession||!['running','paused'].includes(state)||!host?.saveBootSession;
+}
+for(const id of ['boot-cache','session-mode'])el(id).addEventListener('change',()=>{
+  try{localStorage.setItem('qemu-browser-startup',JSON.stringify({cache:el('boot-cache').checked,mode:el('session-mode').value}));}catch{}
+  cacheControls();
+});
+el('clear-boot-cache').onclick=async()=>{
+  try{await clearBootCache();await refreshBootCache();status('Browser boot files and saved session cleared.');}catch(e){status(e.message);}
+};
+el('start-cached').onclick=async()=>{
+  if(state!=='idle'||!bootCacheInfo.cached)return;
+  await refreshBootCache({restoreSettings:true});
+  if(state!=='idle'||!bootCacheInfo.cached)return;
+  for(const id of ['bios','disc','disk'])el(id).value='';
+  biosChoiceChanged=false;el('start').click();
+};
+el('save-session').onclick=async()=>{
+  if(!host?.saveBootSession||savingSession)return;
+  const session=host;
+  try{await session.saveBootSession();await refreshBootCache();}catch(e){if(host===session)status(`Session was not saved: ${e.message}`);}finally{if(host===session){savingSession=false;cacheControls();}}
+};
+cacheControls();
 
 for(const item of architectures)el('architecture').add(new Option(item.name+(item.available?'':' — engine unavailable'),item.id));
 for(const item of systems)el('os').add(new Option(item.name,item.id));
@@ -103,9 +154,10 @@ function updateBiosSource(){
     else el('bios-info').textContent='Upload an authentic x86 PC BIOS ROM (.bin / .rom).';
   }
 }
-el('bios-source')?.addEventListener('change',updateBiosSource);
+el('bios-source')?.addEventListener('change',()=>{biosChoiceChanged=true;updateBiosSource();});
 el('bios')?.addEventListener('change',()=>{
   if(el('bios').files.length){
+    biosChoiceChanged=true;
     if(el('bios-source'))el('bios-source').value='custom';
     updateBiosSource();
     if(el('bios-info'))el('bios-info').textContent=`Custom BIOS: ${el('bios').files[0].name}`;
@@ -139,7 +191,7 @@ el('btn-cachyos')?.addEventListener('click',async()=>{
   el('architecture').value='x86_64';
   if(el('memory'))el('memory').value='3072';
   compatibility();
-  if(el('disc')?.files?.length){
+  if(el('disc')?.files?.length||(el('boot-cache').checked&&bootCacheInfo.cached)){
     status('Starting CachyOS live desktop with selected ISO…');
     el('start').click();
   }else{
@@ -159,6 +211,8 @@ el('btn-cachyos')?.addEventListener('click',async()=>{
 });
 
 function compatibility(){
+  el('boot-cache-options').hidden=false;
+  refreshBootCache().catch(()=>{});
   const problem=machineProblem(el('architecture').value,el('os').value);
   el('compatibility-note').textContent=problem||(el('os').value==='cachyos'
     ?'CachyOS live desktop profile with Wayland and KDE Plasma (x86_64).'
@@ -169,13 +223,16 @@ function compatibility(){
   el('selection-note').hidden=!problem;el('selection-note').textContent=problem;
   updateFixture();
 }
-el('architecture').addEventListener('change',compatibility);
+el('architecture').addEventListener('change',()=>{compatibility();refreshBootCache({restoreSettings:true}).catch(()=>{});});
 el('os').addEventListener('change',()=>{
   const system=systems.find(item=>item.id===el('os').value);
   if(!system.architectures.includes(el('architecture').value))el('architecture').value=system.architectures[0];
+  biosChoiceChanged=false;
   compatibility();
+  refreshBootCache({restoreSettings:true}).catch(()=>{});
 });
 compatibility();
+refreshBootCache({restoreSettings:true}).catch(()=>{});
 updateStorageSummary();
 window.addEventListener('focus',updateStorageSummary);
 window.updateStorageSummary=updateStorageSummary;
@@ -210,7 +267,7 @@ el('menu-reset').onclick=()=>{
 
 el('start').addEventListener('click',e=>{
   const source=el('bios-source')?.value||'seabios';
-  if(source==='custom'&&!el('bios').files.length){
+  if(source==='custom'&&!el('bios').files.length&&!(el('boot-cache').checked&&bootCacheInfo.cached&&!biosChoiceChanged)){
     e.preventDefault();
     window.QemuLayout?.show?.('media');
     el('bios').focus();
@@ -226,6 +283,7 @@ function status(text){el('status').textContent=text;}
 
 function controls(next){
   state=next;
+  cacheControls();
   const active=state!=='idle', running=state==='running';
   el('machine-controls').hidden=!active;
   compatibility();
@@ -241,6 +299,7 @@ function controls(next){
   el('setup-state').hidden=!active;
   el('setup-state').textContent=active?'Stop the PC to change setup or reset menu defaults.':'';
   el('boot').setAttribute('aria-busy',String(state==='starting'));
+  cacheControls();
 }
 
 let logText='', logFrame=0;
@@ -274,58 +333,102 @@ canvas.addEventListener('wheel',e=>{
   host.pointer?.((e.clientX-rect.left)/rect.width,(e.clientY-rect.top)/rect.height,0,e.deltaY)?.catch?.(()=>{});
 },{passive:false});
 
+function cachedProgress({phase,asset,received,message},generation){
+  if(generation!==bootGeneration)return;
+  if(phase==='checking-cache')status(`Checking ${asset||'boot files'}… ${received?Math.floor(received/1048576)+' MB':''}`);
+  else if(phase==='caching')status(`Keeping ${asset||'boot files'} in this browser…`);
+  else if(phase==='cache-hit')status(`Using cached ${asset||'boot files'}.`);
+  else if(phase==='restoring')status('Restoring saved system…');
+  else if(phase==='session-miss')status('No matching saved session. Starting a fresh boot.');
+  else if(phase==='saving-session'){savingSession=true;cacheControls();status('Saving current system in this browser…');}
+  else if(phase==='session-saved'){savingSession=false;cacheControls();refreshBootCache();status('System saved. The next start can resume from here.');}
+  else if(phase==='session-save-failed'){savingSession=false;cacheControls();status(`System was not saved: ${message}`);}
+}
 window.bootPc=async options=>{
   bootProgress.hide();
   const problem=machineProblem(options.architecture??'i386');
   if(problem)throw new Error(problem);
   if(!crossOriginIsolated||typeof SharedArrayBuffer==='undefined')throw new Error('PC startup requires cross-origin isolation. Reload the page once setup finishes.');
   bootOptions={...options,files:Object.fromEntries(Object.entries(options.files||{}).map(([key,value])=>[key,value instanceof ArrayBuffer?value.slice(0):ArrayBuffer.isView(value)?value.slice():value]))};
-  host?.terminate();keys.clear();paused=false;
+  const generation=++bootGeneration;
+  bootAbort?.abort();const abort=bootAbort=new AbortController();
+  host?.terminate();host=null;window.pcHost=null;keys.clear();paused=false;
   const arch=architectures.find(a=>a.id===(options.architecture??'i386'));
-  const coreUrl=options.coreUrl||arch?.coreUrl||'./cores/qemu/qemu-core.js';
-  const session=new QemuHost({canvas,coreUrl:new URL(coreUrl,document.baseURI)});host=session;window.pcHost=session;
-  const current=()=>host===session;
-  const finish=message=>{if(!current())return;host=null;window.pcHost=null;session.terminate();keys.clear();paused=false;controls('idle');status(message);};
-  session.addEventListener('log',e=>{if(current())log(e.detail.lines);});
-  for(const type of ['error','abort'])session.addEventListener(type,e=>finish(e.detail.message));
-  session.addEventListener('exited',()=>finish('PC stopped.'));
+  const coreUrl=new URL(options.coreUrl||arch?.coreUrl||'./cores/qemu/qemu-core.js',document.baseURI);
+  let session,cached;
+  const current=()=>generation===bootGeneration&&(!session||host===session);
+  const finish=message=>{if(!current())return;session?.terminate();if(!session)cached?.dispose();host=null;window.pcHost=null;keys.clear();paused=false;controls('idle');status(message);};
   controls('starting');status('Starting PC…');
   const started=performance.now();
   try{
-    await session.boot({memoryOrder:'auto',...options});
+    await cacheCleanup;abort.signal.throwIfAborted();
+    if(options.cacheBoot)cached=await prepareCachedMachine({slot:options.cacheSlot||cacheSlot(),label:options.cacheLabel||'PC',
+      files:options.files,settings:options.settings,args:options.args,replaceFiles:!!options.replaceCachedFiles,coreUrl,sessionMode:options.sessionMode||'resume',
+      signal:abort.signal,onProgress:e=>cachedProgress(e,generation)});
+    abort.signal.throwIfAborted();
+    session=new QemuHost({canvas,coreUrl:cached?.coreUrl||coreUrl});host=session;window.pcHost=session;
+    if(cached){
+      const terminate=session.terminate.bind(session);session.terminate=()=>{terminate();session.cacheClosed=cached.dispose();cacheCleanup=session.cacheClosed;};
+      session.saveBootSession=()=>cached.save(session,true);session.resumedSession=cached.restore;
+    }
+    session.addEventListener('log',e=>{if(current())log(e.detail.lines);});
+    for(const type of ['error','abort'])session.addEventListener(type,e=>finish(e.detail.message));
+    session.addEventListener('exited',()=>finish('PC stopped.'));
+    options.onHost?.(session);
+    await session.boot({memoryOrder:'strict',...options,...cached?.boot});
     if(!current())return null;
-    controls('running');status(`PC running. Started in ${((performance.now()-started)/1000).toFixed(1)}s. Click the display to use the keyboard.`);
+    controls('running');status(session.resumedSession?'Saved system resumed.':'PC running. Click Save current session once the operating system is ready.');
     canvas.focus();return session;
-  }catch(e){finish(e.message);throw e;}
+  }catch(e){if(generation!==bootGeneration){cached?.dispose();return null;}finish(e.message);throw e;}
 };
 
 el('boot').addEventListener('submit',async e=>{
   e.preventDefault();if(state!=='idle')return;
   closeMenu();
+  let attempt;
   try{
     if(el('os').value==='cachyos'){
+      const generation=attempt=++bootGeneration;
+      bootAbort?.abort();
+      const abort=bootAbort=new AbortController();
       const disc=el('disc').files[0];
-      if(!disc)throw new Error('Please choose a local CachyOS ISO file.');
+      if(!disc&&!(el('boot-cache').checked&&bootCacheInfo.cached))throw new Error('Please choose a local CachyOS ISO file for the first start.');
       controls('starting');
       status('Preparing CachyOS live desktop…');
       host?.terminate();keys.clear();paused=false;
       const started=performance.now();
       bootProgress.start();
+      await cacheCleanup;abort.signal.throwIfAborted();
       const instance=await bootCachyos({
         canvas,
         disc,
+        signal:abort.signal,
+        cacheBoot:el('boot-cache').checked,
+        sessionMode:el('boot-cache').checked?el('session-mode').value:'fresh',
         bios:'./firmware/bios-256k.bin',
         vgabios:'./firmware/vgabios-stdvga.bin',
         linuxboot:'./firmware/linuxboot_dma.bin',
         coreUrl:new URL('./cores/qemu-x86_64-wasm64/qemu-core.js',location.href),
         memory:Number(el('memory')?.value||3072),
-        onProgress:({phase,asset,received})=>{
-          if(phase==='loading')status(`Loading ${asset||''}… ${received?(Math.floor(received/1048576)+' MB'):''}`);
+        onProgress:({phase,asset,received,message})=>{
+          if(generation!==bootGeneration)return;
+          if(phase==='checking-cache'){status(`Checking ${asset||'boot files'}… ${received?Math.floor(received/1048576)+' MB':''}`);}
+          else if(phase==='caching')status(`Saving ${asset||'boot files'} in this browser…`);
+          else if(phase==='cache-hit')status(`Using cached ${asset||'boot files'}.`);
+          else if(phase==='restoring'){status('Restoring saved session…');bootProgress.step('Restoring saved session',90);}
+          else if(phase==='session-miss')status('No matching saved session. Starting a fresh boot with cached files.');
+          else if(phase==='saving-session'){savingSession=true;cacheControls();status('Saving current session in this browser…');}
+          else if(phase==='session-saved'){savingSession=false;cacheControls();refreshBootCache();status('Session saved. The next start can resume from here.');}
+          else if(phase==='session-save-failed'){savingSession=false;cacheControls();status(`Desktop ready; session was not saved: ${message}`);}
+          else if(phase==='loading')status(`Loading ${asset||''}… ${received?(Math.floor(received/1048576)+' MB'):''}`);
           else if(phase==='preparing'){status('Extracting CachyOS live kernel and initramfs…');bootProgress.start('Extracting the kernel and initramfs');}
           else if(phase==='booting'){status('Starting CachyOS live kernel…');bootProgress.step('Starting the Linux kernel',5);}
           else if(phase==='desktop-ready')status(`CachyOS live desktop ready (${((performance.now()-started)/1000).toFixed(1)}s).`);
         },
         onHost:session=>{
+          if(generation!==bootGeneration){session.terminate();return;}
+          const terminate=session.terminate.bind(session);
+          session.terminate=()=>{terminate();if(session.cacheClosed)cacheCleanup=session.cacheClosed;};
           host=session;window.pcHost=session;
           const current=()=>host===session;
           const finish=message=>{if(!current())return;host=null;window.pcHost=null;session.terminate();keys.clear();paused=false;controls('idle');status(message);bootProgress.finish(false,message);};
@@ -336,19 +439,35 @@ el('boot').addEventListener('submit',async e=>{
       });
       host=instance;window.pcHost=instance;
       controls('running');
-      status('CachyOS is booting. In the browser this can take 20–40 minutes; the screen may stay unchanged for long stretches.');
+      status(instance.resumedSession?'Saved session restored.':'CachyOS is booting. The first boot can take a long time; save the session to resume faster next time.');
       canvas.focus();
       try{
         await instance.desktopReady;
+        if(generation!==bootGeneration)return;
         status(`CachyOS live desktop ready (${((performance.now()-started)/1000).toFixed(1)}s). Click display to interact.`);
         bootProgress.finish(true,'Desktop ready');
       }catch(err){
+        if(generation!==bootGeneration)return;
         if(state!=='idle')status(err.message||'CachyOS desktop startup failed.');
         bootProgress.finish(false,err.message||'Desktop startup failed');
       }
       return;
     }
+    const prepGeneration=attempt=++bootGeneration;
+    bootAbort?.abort();bootAbort=new AbortController();
+    controls('starting');
     const sys=systems.find(item=>item.id===el('os').value);
+    await refreshBootCache();
+    if(prepGeneration!==bootGeneration)return;
+    const caching=el('boot-cache').checked;
+    const noNewFiles=!el('disc').files[0]&&!el('disk').files[0]&&!el('bios').files[0];
+    if(caching&&bootCacheInfo.cached&&noNewFiles&&!biosChoiceChanged){
+      const architecture=el('architecture').value;
+      await window.bootPc({architecture,cacheBoot:true,cacheSlot:cacheSlot(),cacheLabel:sys?.name||'Custom PC',sessionMode:el('session-mode').value,files:{},
+        settings:{cpu:bootCacheInfo.settings?.cpu||(architecture==='x86_64'?'qemu64':'pentium3'),diskFormat:el('format').value,memory:Number(el('memory').value)},
+        args:[...(bootCacheInfo.hasDisc?['-boot','order=dc']:[]),...(el('serial').checked?['-chardev','stdio,id=console','-device','isa-serial,chardev=console,index=0']:[])]});
+      return;
+    }
     let disc=el('disc').files[0];
     if(!disc&&sys?.fixture){
       status(`Preparing ${sys.fixture.name}…`);
@@ -380,16 +499,23 @@ el('boot').addEventListener('submit',async e=>{
         vgabios=await fetchWithCache(defaultVgaBios.streamUrl,null,defaultVgaBios.fallbackUrl).catch(()=>undefined);
       }
     }
-    await window.bootPc(selectedBootOptions({architecture:el('architecture').value,system:el('os').value,
+    const options=selectedBootOptions({architecture:el('architecture').value,system:el('os').value,
       bios,vgabios,disk:el('disk').files[0],disc,
-      format:el('format').value,memory:el('memory').value,serial:el('serial').checked}));
-  }catch(e){if(state==='idle'&&e.message!=='Core terminated')status(e.message);}
+      format:el('format').value,memory:el('memory').value,serial:el('serial').checked});
+    if(caching){options.cacheBoot=true;options.replaceCachedFiles=true;options.cacheSlot=cacheSlot();options.cacheLabel=sys?.name||'Custom PC';options.sessionMode=el('session-mode').value;if(!disc)delete options.files.disc;}
+    if(prepGeneration!==bootGeneration)return;
+    await window.bootPc(options);
+  }catch(e){
+    if(attempt!==undefined&&attempt!==bootGeneration)return;
+    if(attempt!==undefined){host?.terminate();host=null;window.pcHost=null;savingSession=false;controls('idle');if(el('os').value==='cachyos')bootProgress.finish(false,e.message);}
+    if(state==='idle'&&e.message!=='Core terminated')status(e.message+(el('os').value==='cachyos'?' Choose Fresh boot to retry without restoring a session.':''));
+  }
 });
 
 el('pause').onclick=async()=>{try{await releaseKeys();await host.pause();paused=true;controls('paused');status('PC paused.');}catch(e){status(e.message);}};
 el('resume').onclick=async()=>{try{await host.resume();paused=false;controls('running');status('PC running.');canvas.focus();}catch(e){status(e.message);}};
-el('reset').onclick=async()=>{try{if(el('os').value==='cachyos')el('start').click();else await window.bootPc(bootOptions);}catch(e){if(state==='idle')status(e.message);}};
-el('stop').onclick=()=>{bootProgress.hide();host?.terminate();host=null;window.pcHost=null;keys.clear();paused=false;controls('idle');status('PC stopped.');};
+el('reset').onclick=async()=>{try{if(el('os').value==='cachyos')el('start').click();else await window.bootPc({...bootOptions,sessionMode:'fresh'});}catch(e){if(state==='idle')status(e.message);}};
+el('stop').onclick=()=>{++bootGeneration;bootAbort?.abort();bootAbort=null;savingSession=false;bootProgress.hide();host?.terminate();host=null;window.pcHost=null;keys.clear();paused=false;controls('idle');status('PC stopped.');};
 
 async function isolation(){if(crossOriginIsolated)return;if(!('serviceWorker' in navigator)){status('This browser needs cross-origin isolation support.');return;}await navigator.serviceWorker.register('./coi-serviceworker.js');if(!navigator.serviceWorker.controller){navigator.serviceWorker.addEventListener('controllerchange',()=>location.reload(),{once:true});}else if(!sessionStorage.getItem('qemu-isolation-reload')){sessionStorage.setItem('qemu-isolation-reload','1');location.reload();}}
 isolation().catch(e=>status(e.message));
