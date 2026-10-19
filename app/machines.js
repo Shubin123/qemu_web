@@ -43,6 +43,7 @@ export const defaultVgaBios = {
 
 export const systems = [
   {id:'custom',name:'Custom / other OS',architectures:['i386','x86_64','aarch64']},
+  {id:'cachyos',name:'CachyOS Linux',architectures:['x86_64']},
   {id:'freedos',name:'FreeDOS',architectures:['i386']},
   {id:'alpine',name:'Alpine Linux',architectures:['i386','x86_64','aarch64']},
   {id:'debian',name:'Debian 12',architectures:['i386','x86_64','aarch64']},

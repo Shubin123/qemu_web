@@ -1,5 +1,6 @@
 import {architectures,systems,machineProblem,selectedBootOptions,defaultBioses,defaultVgaBios} from './machines.js';
 import {QemuHost} from './src/qemu-host.js';
+import {bootCachyos} from './src/qemu-cachyos.js';
 import {isCached,getCachedBlob,putCachedBlob,deleteCached,fetchWithCache,getCacheSummary} from './downloads.js';
 import {buildFlash} from './firmware.js';
 
@@ -130,10 +131,37 @@ el('btn-templeos').onclick=async()=>{
   }
 };
 
+el('btn-cachyos')?.addEventListener('click',async()=>{
+  if(state!=='idle')return;
+  el('os').value='cachyos';
+  el('architecture').value='x86_64';
+  if(el('memory'))el('memory').value='3072';
+  compatibility();
+  if(el('disc')?.files?.length){
+    status('Starting CachyOS live desktop with selected ISO…');
+    el('start').click();
+  }else{
+    window.QemuLayout?.show?.('media');
+    el('disc').focus();
+    const onChosen=()=>{
+      el('disc').removeEventListener('change',onChosen);
+      if(el('disc').files?.length){
+        status('CachyOS ISO selected. Starting…');
+        el('start').click();
+      }
+    };
+    el('disc').addEventListener('change',onChosen,{once:true});
+    el('disc').click();
+    status('Please choose your local CachyOS ISO to start.');
+  }
+});
+
 function compatibility(){
   const problem=machineProblem(el('architecture').value,el('os').value);
-  el('compatibility-note').textContent=problem||(el('architecture').value==='x86_64'
-    ?'64-bit engine available. OS boot compatibility has not been verified; memory is configurable up to 512 MiB.'
+  el('compatibility-note').textContent=problem||(el('os').value==='cachyos'
+    ?'CachyOS live desktop profile with Wayland and KDE Plasma (x86_64).'
+    :el('architecture').value==='x86_64'
+    ?'64-bit engine available. OS boot compatibility has not been verified; memory is configurable up to 3072 MiB.'
     :'32-bit engine available. OS boot compatibility has not been verified; memory is limited to 128 MiB.');
   el('start').disabled=state!=='idle'||!!problem;
   el('selection-note').hidden=!problem;el('selection-note').textContent=problem;
@@ -205,6 +233,7 @@ function controls(next){
   el('reset').disabled=!['running','paused'].includes(state);
   el('stop').disabled=!active;
   el('btn-templeos').disabled=active;
+  if(el('btn-cachyos'))el('btn-cachyos').disabled=active;
   for(const id of ['bios','bios-source','disk','disc','format','memory','architecture','os','serial'])if(el(id))el(id).disabled=active;
   el('menu-reset').disabled=active;
   el('setup-state').hidden=!active;
@@ -228,6 +257,20 @@ function qcode(code){return special[code]||(/^Key[A-Z]$/.test(code)?code.slice(3
 canvas.addEventListener('keydown',e=>{const key=qcode(e.code);if(!host||paused||!key)return;e.preventDefault();if(keys.has(e.code))return;keys.set(e.code,key);host.key(key,true).catch(e=>status(e.message));});
 canvas.addEventListener('keyup',e=>{const key=keys.get(e.code);if(!key||!host)return;e.preventDefault();keys.delete(e.code);host.key(key,false).catch(e=>status(e.message));});
 canvas.addEventListener('blur',releaseKeys);window.addEventListener('blur',releaseKeys);
+for(const ev of ['pointermove','pointerdown','pointerup'])canvas.addEventListener(ev,e=>{
+  if(!host)return;
+  if(ev==='pointerdown'){canvas.focus();canvas.setPointerCapture?.(e.pointerId);}
+  const rect=canvas.getBoundingClientRect();
+  const buttons=(e.buttons&1)|((e.buttons&2)?2:0)|((e.buttons&4)?4:0);
+  host.pointer?.((e.clientX-rect.left)/rect.width,(e.clientY-rect.top)/rect.height,buttons)?.catch?.(()=>{});
+});
+canvas.oncontextmenu=e=>e.preventDefault();
+canvas.addEventListener('wheel',e=>{
+  if(!host)return;
+  e.preventDefault();
+  const rect=canvas.getBoundingClientRect();
+  host.pointer?.((e.clientX-rect.left)/rect.width,(e.clientY-rect.top)/rect.height,0,e.deltaY)?.catch?.(()=>{});
+},{passive:false});
 
 window.bootPc=async options=>{
   const problem=machineProblem(options.architecture??'i386');
@@ -257,6 +300,48 @@ el('boot').addEventListener('submit',async e=>{
   e.preventDefault();if(state!=='idle')return;
   closeMenu();
   try{
+    if(el('os').value==='cachyos'){
+      const disc=el('disc').files[0];
+      if(!disc)throw new Error('Please choose a local CachyOS ISO file.');
+      controls('starting');
+      status('Preparing CachyOS live desktop…');
+      host?.terminate();keys.clear();paused=false;
+      const started=performance.now();
+      const instance=await bootCachyos({
+        canvas,
+        disc,
+        bios:'./firmware/bios-256k.bin',
+        vgabios:'./firmware/vgabios-stdvga.bin',
+        linuxboot:'./firmware/linuxboot_dma.bin',
+        coreUrl:'./cores/qemu-x86_64-wasm64/qemu-core.js',
+        memory:Number(el('memory')?.value||3072),
+        onProgress:({phase,asset,received})=>{
+          if(phase==='loading')status(`Loading ${asset||''}… ${received?(Math.floor(received/1048576)+' MB'):''}`);
+          else if(phase==='preparing')status('Extracting CachyOS live kernel and initramfs…');
+          else if(phase==='booting')status('Starting CachyOS live kernel…');
+          else if(phase==='desktop-ready')status(`CachyOS live desktop ready (${((performance.now()-started)/1000).toFixed(1)}s).`);
+        },
+        onHost:session=>{
+          host=session;window.pcHost=session;
+          const current=()=>host===session;
+          const finish=message=>{if(!current())return;host=null;window.pcHost=null;session.terminate();keys.clear();paused=false;controls('idle');status(message);};
+          session.addEventListener('log',e=>{if(current())log(e.detail.lines);});
+          for(const type of ['error','abort'])session.addEventListener(type,e=>finish(e.detail.message));
+          session.addEventListener('exited',()=>finish('PC stopped.'));
+        }
+      });
+      host=instance;window.pcHost=instance;
+      controls('running');
+      status(`CachyOS booting… Waiting for live desktop (${((performance.now()-started)/1000).toFixed(1)}s).`);
+      canvas.focus();
+      try{
+        await instance.desktopReady;
+        status(`CachyOS live desktop ready (${((performance.now()-started)/1000).toFixed(1)}s). Click display to interact.`);
+      }catch(err){
+        if(state!=='idle')status(err.message||'CachyOS desktop startup failed.');
+      }
+      return;
+    }
     const sys=systems.find(item=>item.id===el('os').value);
     let disc=el('disc').files[0];
     if(!disc&&sys?.fixture){
@@ -297,7 +382,7 @@ el('boot').addEventListener('submit',async e=>{
 
 el('pause').onclick=async()=>{try{await releaseKeys();await host.pause();paused=true;controls('paused');status('PC paused.');}catch(e){status(e.message);}};
 el('resume').onclick=async()=>{try{await host.resume();paused=false;controls('running');status('PC running.');canvas.focus();}catch(e){status(e.message);}};
-el('reset').onclick=async()=>{try{await window.bootPc(bootOptions);}catch(e){if(state==='idle')status(e.message);}};
+el('reset').onclick=async()=>{try{if(el('os').value==='cachyos')el('start').click();else await window.bootPc(bootOptions);}catch(e){if(state==='idle')status(e.message);}};
 el('stop').onclick=()=>{host?.terminate();host=null;window.pcHost=null;keys.clear();paused=false;controls('idle');status('PC stopped.');};
 
 async function isolation(){if(crossOriginIsolated)return;if(!('serviceWorker' in navigator)){status('This browser needs cross-origin isolation support.');return;}await navigator.serviceWorker.register('./coi-serviceworker.js');if(!navigator.serviceWorker.controller){navigator.serviceWorker.addEventListener('controllerchange',()=>location.reload(),{once:true});}else if(!sessionStorage.getItem('qemu-isolation-reload')){sessionStorage.setItem('qemu-isolation-reload','1');location.reload();}}

@@ -3,6 +3,7 @@ import {existsSync} from 'node:fs';
 import {chromium} from 'playwright-core';
 import {serve} from '../tools/serve.mjs';
 import {buildFlash,expectedChecksum} from './test-flash.js';
+import {systems} from '../app/machines.js';
 
 const executablePath=[process.env.CHROME_PATH,'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome','/usr/bin/google-chrome','/usr/bin/chromium'].find(p=>p&&existsSync(p));
 const {server,url}=process.env.TEST_BASE_URL?{server:null,url:process.env.TEST_BASE_URL}:await serve({port:0,quiet:true});
@@ -159,7 +160,7 @@ try{
   assert.equal(await page.locator('#fixture-notice').isVisible(),false);
   await page.selectOption('#architecture','i386');
   assert.equal(await page.locator('#start').isEnabled(),true);
-  assert.equal(await page.locator('#os-coverage tr').count(),7);
+  assert.equal(await page.locator('#os-coverage tr').count(),systems.filter(s=>s.id!=='custom').length);
 
   // BIOS defaults and source selection
   assert.equal(await page.locator('#bios-source').inputValue(),'seabios');

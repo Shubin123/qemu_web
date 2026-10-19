@@ -64,6 +64,16 @@
       "sha256": "c553351d292b524d0cb0d5d693dd3a609ca59f428dbb028cca9b7b74ded5c924"
     },
     {
+      "path": "src/qemu-cachyos.js",
+      "size": 7864,
+      "sha256": "67681b9096b2bcc01d4e9c13ac5e0532969d72bc382298a8f769fc175b3e148d"
+    },
+    {
+      "path": "src/qemu-iso.js",
+      "size": 2020,
+      "sha256": "b47152bb070445b3149e6f3ced773c38f05d5d8c45abdf24e766ba180cae11d8"
+    },
+    {
       "path": "src/qemu-opfs-fs.js",
       "size": 4548,
       "sha256": "dca2b692130a57ea3c4be0781380a16f366dfd4cad72ebec2830e90dea0035ec"
